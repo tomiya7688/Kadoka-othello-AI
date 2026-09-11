@@ -15,6 +15,7 @@ add_library(kadoka_othello_core
     src/ai_creator.cpp
     src/package.cpp
     src/package_loader.cpp
+    src/package_import.cpp
     src/model_data.cpp
     src/conversion.cpp
     src/headless.cpp
