@@ -1,0 +1,6 @@
+{
+  "format": "kadoka.script_evaluator.v1",
+  "runtime": "python_process",
+  "executable": "python",
+  "script": "evaluator.py"
+}
