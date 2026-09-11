@@ -67,6 +67,10 @@ private:
     std::size_t recent_cursor_{};
 };
 
+// Legacy single-file parameter loader.
 [[nodiscard]] ObakeKadokaConfig load_obake_kadoka_config(const std::string& path);
+
+// Standard Kadoka model loader: model.json is a root descriptor that references assets.
+[[nodiscard]] ObakeKadokaConfig load_obake_kadoka_model(const std::string& model_root_path);
 
 }  // namespace kadoka::othello
