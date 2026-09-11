@@ -1,0 +1,11 @@
+{
+  "id": "kadoka.random",
+  "name": "Kadoka Random AI",
+  "version": "0.1.0",
+  "protocol_version": 1,
+  "board_sizes": [6, 8, 10],
+  "interface": "native",
+  "adapter": "pass_through",
+  "entry": "builtin:kadoka.random",
+  "capabilities": ["move", "inspection"]
+}
