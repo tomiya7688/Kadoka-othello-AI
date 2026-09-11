@@ -107,8 +107,9 @@ AIPackageManifest load_ai_manifest(const std::string& path) {
     manifest.interface_type = parse_interface(find_string(json, "interface", "native"));
     manifest.adapter = find_string(json, "adapter", "pass_through");
     manifest.entry = find_string(json, "entry");
+    manifest.model = find_string(json, "model");
     manifest.capabilities = find_string_array(json, "capabilities");
-    manifest.source_directory = std::filesystem::absolute(std::filesystem::path(path)).parent_path().string();
+    manifest.source_directory = std::filesystem::path(path).parent_path().string();
 
     if (manifest.id.empty() || manifest.name.empty() || manifest.version.empty()) {
         throw std::invalid_argument("AI manifest requires id, name and version");
