@@ -1,11 +1,17 @@
 {
   "format": "kadoka.native_model.v1",
   "model_id": "kadoka.obake_kadoka",
-  "corner_weight": 5.0,
-  "edge_weight": 2.0,
-  "near_piece_weight": 1.2,
-  "center_weight": 0.4,
+  "corner_score": 8.0,
+  "edge_score": 2.0,
+  "x_square_penalty": 7.0,
+  "c_square_penalty": 4.0,
+  "occupied_neighbor_score": 0.7,
+  "empty_neighbor_penalty": 0.25,
+  "mixed_color_score": 1.2,
+  "line_potential_score": 1.6,
+  "center_early_score": 0.5,
   "recent_retry_penalty": 0.05,
-  "exploration_floor": 0.15,
+  "exploration_floor": 0.02,
+  "randomizer_temperature": 3.0,
   "memory_depth": 2
 }
