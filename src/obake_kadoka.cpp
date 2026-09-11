@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cmath>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -48,6 +48,77 @@ std::size_t read_size(const std::string& text, const std::string& key, std::size
     return value < 0.0 ? fallback : static_cast<std::size_t>(value);
 }
 
+bool is_corner(std::size_t size, Position move) noexcept {
+    const std::size_t last = size - 1;
+    return (move.row == 0 || move.row == last) &&
+           (move.col == 0 || move.col == last);
+}
+
+bool is_edge(std::size_t size, Position move) noexcept {
+    const std::size_t last = size - 1;
+    return move.row == 0 || move.row == last || move.col == 0 || move.col == last;
+}
+
+bool is_x_square(std::size_t size, Position move, Position& corner) noexcept {
+    const std::size_t last = size - 1;
+    if (move.row == 1 && move.col == 1) { corner = {0, 0}; return true; }
+    if (move.row == 1 && move.col + 2 == size) { corner = {0, last}; return true; }
+    if (move.row + 2 == size && move.col == 1) { corner = {last, 0}; return true; }
+    if (move.row + 2 == size && move.col + 2 == size) { corner = {last, last}; return true; }
+    return false;
+}
+
+bool is_c_square(std::size_t size, Position move, Position& corner) noexcept {
+    const std::size_t last = size - 1;
+    if (move.row == 0 && move.col == 1) { corner = {0, 0}; return true; }
+    if (move.row == 1 && move.col == 0) { corner = {0, 0}; return true; }
+    if (move.row == 0 && move.col + 2 == size) { corner = {0, last}; return true; }
+    if (move.row == 1 && move.col == last) { corner = {0, last}; return true; }
+    if (move.row == last && move.col == 1) { corner = {last, 0}; return true; }
+    if (move.row + 2 == size && move.col == 0) { corner = {last, 0}; return true; }
+    if (move.row == last && move.col + 2 == size) { corner = {last, last}; return true; }
+    if (move.row + 2 == size && move.col == last) { corner = {last, last}; return true; }
+    return false;
+}
+
+std::size_t count_empty_cells(const Board& board) {
+    std::size_t empty = 0;
+    for (std::size_t row = 0; row < board.size(); ++row) {
+        for (std::size_t col = 0; col < board.size(); ++col) {
+            if (board.at({row, col}) == Cell::Empty) ++empty;
+        }
+    }
+    return empty;
+}
+
+int line_potential(const Board& board, Position move) {
+    int potential = 0;
+
+    for (const auto [dr, dc] : kDirections) {
+        int row = static_cast<int>(move.row) + dr;
+        int col = static_cast<int>(move.col) + dc;
+        if (!in_bounds(board, row, col)) continue;
+
+        const Cell first = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
+        if (first == Cell::Empty) continue;
+
+        int length = 0;
+        while (in_bounds(board, row, col)) {
+            const Cell current = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
+            if (current != first) break;
+            ++length;
+            row += dr;
+            col += dc;
+        }
+
+        if (length == 0 || !in_bounds(board, row, col)) continue;
+        const Cell terminal = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
+        if (terminal != Cell::Empty && terminal != first) ++potential;
+    }
+
+    return potential;
+}
+
 }  // namespace
 
 ObakeKadokaAI::ObakeKadokaAI(
@@ -56,6 +127,8 @@ ObakeKadokaAI::ObakeKadokaAI(
     : config_(config),
       rng_(seed == 0 ? std::random_device{}() : seed) {
     config_.memory_depth = std::min<std::size_t>(config_.memory_depth, recent_.size());
+    config_.randomizer_temperature = std::max(config_.randomizer_temperature, 0.05);
+    config_.exploration_floor = std::max(config_.exploration_floor, 0.0);
 }
 
 std::string ObakeKadokaAI::id() const {
@@ -101,15 +174,16 @@ AIInspection ObakeKadokaAI::inspect(const AdaptedAIInput& input) {
     for (std::size_t i = 0; i < count; ++i) {
         inspection.candidates.push_back(AICandidate{
             candidates[i].move,
-            candidates[i].weight,
+            candidates[i].score,
             total_weight > 0.0 ? candidates[i].weight / total_weight : 0.0,
         });
     }
     inspection.diagnostics.push_back({"engine", id()});
-    inspection.diagnostics.push_back({"strategy", "weighted_empty_square_randomizer"});
+    inspection.diagnostics.push_back({"strategy", "obake_square_evaluation_plus_weighted_randomizer"});
     inspection.diagnostics.push_back({"legal_moves_used", "false"});
     inspection.diagnostics.push_back({"memory_depth", std::to_string(config_.memory_depth)});
     inspection.diagnostics.push_back({"candidate_count", std::to_string(count)});
+    inspection.diagnostics.push_back({"randomizer_temperature", std::to_string(config_.randomizer_temperature)});
     return inspection;
 }
 
@@ -125,58 +199,82 @@ std::size_t ObakeKadokaAI::collect_candidates(
         for (std::size_t col = 0; col < board.size(); ++col) {
             const Position move{row, col};
             if (board.at(move) != Cell::Empty) continue;
-            candidates[count++] = WeightedMove{move, score_position(board, move)};
+
+            const double score = evaluate_position(board, move);
+            candidates[count++] = WeightedMove{
+                move,
+                score,
+                score_to_weight(score, is_recent(move)),
+            };
         }
     }
     return count;
 }
 
-double ObakeKadokaAI::score_position(const Board& board, Position move) const {
-    const std::size_t last = board.size() - 1;
-    const bool corner =
-        (move.row == 0 || move.row == last) &&
-        (move.col == 0 || move.col == last);
-    const bool edge = move.row == 0 || move.row == last || move.col == 0 || move.col == last;
+double ObakeKadokaAI::evaluate_position(const Board& board, Position move) const {
+    const std::size_t size = board.size();
+    double score = 0.0;
 
-    double score = config_.exploration_floor;
-    if (corner) score += config_.corner_weight;
-    else if (edge) score += config_.edge_weight;
+    if (is_corner(size, move)) score += config_.corner_score;
+    else if (is_edge(size, move)) score += config_.edge_score;
+
+    Position related_corner{};
+    if (is_x_square(size, move, related_corner) && board.at(related_corner) == Cell::Empty) {
+        score -= config_.x_square_penalty;
+    }
+    if (is_c_square(size, move, related_corner) && board.at(related_corner) == Cell::Empty) {
+        score -= config_.c_square_penalty;
+    }
 
     int occupied_neighbors = 0;
-    int directional_lines = 0;
+    int empty_neighbors = 0;
+    bool touches_black = false;
+    bool touches_white = false;
+
     for (const auto [dr, dc] : kDirections) {
         const int row = static_cast<int>(move.row) + dr;
         const int col = static_cast<int>(move.col) + dc;
         if (!in_bounds(board, row, col)) continue;
-        const Cell neighbor = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-        if (neighbor == Cell::Empty) continue;
-        ++occupied_neighbors;
 
-        int row2 = row + dr;
-        int col2 = col + dc;
-        while (in_bounds(board, row2, col2)) {
-            const Cell next = board.at({static_cast<std::size_t>(row2), static_cast<std::size_t>(col2)});
-            if (next == Cell::Empty) break;
-            if (next != neighbor) {
-                ++directional_lines;
-                break;
-            }
-            row2 += dr;
-            col2 += dc;
+        const Cell cell = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
+        if (cell == Cell::Empty) {
+            ++empty_neighbors;
+        } else {
+            ++occupied_neighbors;
+            touches_black = touches_black || cell == Cell::Black;
+            touches_white = touches_white || cell == Cell::White;
         }
     }
 
-    score += static_cast<double>(occupied_neighbors) * config_.near_piece_weight;
-    score += static_cast<double>(directional_lines) * config_.center_weight;
+    score += static_cast<double>(occupied_neighbors) * config_.occupied_neighbor_score;
+    score -= static_cast<double>(empty_neighbors) * config_.empty_neighbor_penalty;
+    if (touches_black && touches_white) score += config_.mixed_color_score;
 
-    const double center = (static_cast<double>(board.size()) - 1.0) * 0.5;
-    const double dr = std::abs(static_cast<double>(move.row) - center);
-    const double dc = std::abs(static_cast<double>(move.col) - center);
-    const double center_bonus = std::max(0.0, center - (dr + dc) * 0.5);
-    score += center_bonus * config_.center_weight;
+    score += static_cast<double>(line_potential(board, move)) * config_.line_potential_score;
 
-    if (is_recent(move)) score *= config_.recent_retry_penalty;
-    return std::max(score, 0.000001);
+    const std::size_t empty_cells = count_empty_cells(board);
+    const double empty_ratio = static_cast<double>(empty_cells) /
+                               static_cast<double>(size * size);
+    if (empty_ratio > 0.55) {
+        const double center = (static_cast<double>(size) - 1.0) * 0.5;
+        const double distance =
+            std::abs(static_cast<double>(move.row) - center) +
+            std::abs(static_cast<double>(move.col) - center);
+        const double normalized = std::max(0.0, center * 2.0 - distance);
+        score += normalized * config_.center_early_score;
+    }
+
+    return score;
+}
+
+double ObakeKadokaAI::score_to_weight(double score, bool recent) const noexcept {
+    const double scaled = std::clamp(
+        score / config_.randomizer_temperature,
+        -12.0,
+        12.0);
+    double weight = std::exp(scaled) + config_.exploration_floor;
+    if (recent) weight *= config_.recent_retry_penalty;
+    return std::max(weight, 0.000001);
 }
 
 bool ObakeKadokaAI::is_recent(Position move) const noexcept {
@@ -222,12 +320,18 @@ ObakeKadokaConfig load_obake_kadoka_config(const std::string& path) {
     const std::string text = buffer.str();
 
     ObakeKadokaConfig config;
-    config.corner_weight = read_number(text, "corner_weight", config.corner_weight);
-    config.edge_weight = read_number(text, "edge_weight", config.edge_weight);
-    config.near_piece_weight = read_number(text, "near_piece_weight", config.near_piece_weight);
-    config.center_weight = read_number(text, "center_weight", config.center_weight);
+    config.corner_score = read_number(text, "corner_score", config.corner_score);
+    config.edge_score = read_number(text, "edge_score", config.edge_score);
+    config.x_square_penalty = read_number(text, "x_square_penalty", config.x_square_penalty);
+    config.c_square_penalty = read_number(text, "c_square_penalty", config.c_square_penalty);
+    config.occupied_neighbor_score = read_number(text, "occupied_neighbor_score", config.occupied_neighbor_score);
+    config.empty_neighbor_penalty = read_number(text, "empty_neighbor_penalty", config.empty_neighbor_penalty);
+    config.mixed_color_score = read_number(text, "mixed_color_score", config.mixed_color_score);
+    config.line_potential_score = read_number(text, "line_potential_score", config.line_potential_score);
+    config.center_early_score = read_number(text, "center_early_score", config.center_early_score);
     config.recent_retry_penalty = read_number(text, "recent_retry_penalty", config.recent_retry_penalty);
     config.exploration_floor = read_number(text, "exploration_floor", config.exploration_floor);
+    config.randomizer_temperature = read_number(text, "randomizer_temperature", config.randomizer_temperature);
     config.memory_depth = std::min<std::size_t>(
         read_size(text, "memory_depth", config.memory_depth), 2U);
     return config;
