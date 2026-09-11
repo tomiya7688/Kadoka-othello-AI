@@ -7,6 +7,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "kadoka_othello/obake_kadoka.hpp"
+
 namespace kadoka::othello {
 namespace {
 
@@ -16,10 +18,24 @@ std::unique_ptr<IAIAdapter> make_adapter(const std::string& id) {
     throw std::invalid_argument("unknown AI adapter: " + id);
 }
 
+std::string resolve_model_path(const AIPackageManifest& manifest) {
+    if (manifest.model.empty()) return {};
+    namespace fs = std::filesystem;
+    fs::path path = fs::path(manifest.model);
+    if (path.is_relative()) path = fs::path(manifest.source_directory) / path;
+    return path.string();
+}
+
 std::unique_ptr<IAIEngine> make_native_engine(
     const AIPackageManifest& manifest,
     std::uint64_t seed) {
-    if (manifest.id == "kadoka.random") return std::make_unique<RandomAI>(seed);
+    if (manifest.id == "kadoka.random") {
+        return std::make_unique<RandomAI>(seed);
+    }
+    if (manifest.id == "kadoka.obake_kadoka") {
+        const ObakeKadokaConfig config = load_obake_kadoka_config(resolve_model_path(manifest));
+        return std::make_unique<ObakeKadokaAI>(seed, config);
+    }
     throw std::invalid_argument("unknown built-in native AI: " + manifest.id);
 }
 
