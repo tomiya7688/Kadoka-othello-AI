@@ -13,6 +13,7 @@ add_library(kadoka_othello_core
     src/state.cpp
     src/ai.cpp
     src/model_descriptor.cpp
+    src/script_evaluator.cpp
     src/obake_kadoka_evaluator.cpp
     src/obake_kadoka_model.cpp
     src/obake_kadoka.cpp
