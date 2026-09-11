@@ -1,6 +1,7 @@
 #include "kadoka_othello/rules.hpp"
 
 #include <array>
+#include <utility>
 
 namespace kadoka::othello::rules {
 namespace {
