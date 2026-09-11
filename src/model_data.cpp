@@ -101,6 +101,9 @@ ModelRecord make_model_record(
     record.legal_moves = game.legal_moves();
     record.selected_move = inspection.output.move;
     record.diagnostics = inspection.diagnostics;
+    for (const auto& candidate : inspection.candidates) {
+        record.candidates.push_back({candidate.move, candidate.value, candidate.policy});
+    }
 
     record.board.reserve(record.board_size * record.board_size);
     for (std::size_t row = 0; row < record.board_size; ++row) {
