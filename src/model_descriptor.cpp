@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace kadoka::othello {
 namespace {
