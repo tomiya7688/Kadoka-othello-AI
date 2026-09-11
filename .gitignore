@@ -1,0 +1,11 @@
+# Local build output
+build/
+
+# Codex local task context
+.codex/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
