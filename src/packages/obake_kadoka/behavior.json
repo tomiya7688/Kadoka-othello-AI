@@ -1,0 +1,12 @@
+{
+  "format": "kadoka.character_behavior.v1",
+  "randomizer": {
+    "temperature": 1.65,
+    "exploration_floor": 0.025
+  },
+  "memory": {
+    "depth": 2,
+    "recent_retry_penalty": 0.08,
+    "inferred_illegal_retry_penalty": 0.005
+  }
+}
