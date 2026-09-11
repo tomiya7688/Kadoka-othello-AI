@@ -34,7 +34,22 @@ struct AIBenchmarkResult {
     double max_us{};
 };
 
+struct BatchAnalysisItem {
+    std::string position_path;
+    CreatorPosition position;
+    AICreatorRunResult result;
+
+    BatchAnalysisItem(
+        std::string path,
+        CreatorPosition loaded_position,
+        AICreatorRunResult run_result)
+        : position_path(std::move(path)),
+          position(std::move(loaded_position)),
+          result(std::move(run_result)) {}
+};
+
 [[nodiscard]] CreatorPosition load_creator_position(const std::string& path);
+[[nodiscard]] std::vector<std::string> load_position_list(const std::string& path);
 
 [[nodiscard]] AICreatorRunResult run_creator_inference(
     LoadedAIPackage& package,
@@ -48,5 +63,9 @@ struct AIBenchmarkResult {
 [[nodiscard]] std::vector<AICreatorRunResult> compare_creator_ais(
     std::vector<LoadedAIPackage>& packages,
     const CreatorPosition& position);
+
+[[nodiscard]] std::vector<BatchAnalysisItem> run_batch_analysis(
+    LoadedAIPackage& package,
+    const std::vector<std::string>& position_paths);
 
 }  // namespace kadoka::othello
