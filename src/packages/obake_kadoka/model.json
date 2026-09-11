@@ -1,0 +1,11 @@
+{
+  "format": "kadoka.native_model.v1",
+  "model_id": "kadoka.obake_kadoka",
+  "corner_weight": 5.0,
+  "edge_weight": 2.0,
+  "near_piece_weight": 1.2,
+  "center_weight": 0.4,
+  "recent_retry_penalty": 0.05,
+  "exploration_floor": 0.15,
+  "memory_depth": 2
+}
