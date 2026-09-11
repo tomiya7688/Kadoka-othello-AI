@@ -20,7 +20,13 @@ struct Position {
     std::size_t row{};
     std::size_t col{};
 
-    friend constexpr bool operator==(const Position&, const Position&) = default;
+    friend constexpr bool operator==(const Position& lhs, const Position& rhs) noexcept {
+        return lhs.row == rhs.row && lhs.col == rhs.col;
+    }
+
+    friend constexpr bool operator!=(const Position& lhs, const Position& rhs) noexcept {
+        return !(lhs == rhs);
+    }
 };
 
 struct Move {
