@@ -1,0 +1,12 @@
+{
+  "format": "kadoka.evaluator.linear.v1",
+  "features": {
+    "occupied_neighbors": 0.45,
+    "empty_neighbors": -0.18,
+    "mixed_color": 1.1,
+    "color_transitions": 0.55,
+    "line_interest": 2.6,
+    "local_density": 0.3,
+    "early_center": 0.12
+  }
+}
