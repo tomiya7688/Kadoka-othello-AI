@@ -13,7 +13,9 @@ AdaptedAIInput DropLegalMovesAdapter::adapt(const AIInput& input) const {
 }
 
 AIInspection IAIEngine::inspect(const AdaptedAIInput& input) {
-    return AIInspection{think(input), {}};
+    AIInspection inspection;
+    inspection.output = think(input);
+    return inspection;
 }
 
 RandomAI::RandomAI(std::uint64_t seed)
@@ -39,7 +41,13 @@ AIInspection RandomAI::inspect(const AdaptedAIInput& input) {
     inspection.diagnostics.push_back({"engine", id()});
     inspection.diagnostics.push_back({"strategy", "uniform_random_legal_move"});
     if (input.legal_moves != nullptr) {
+        const double policy = input.legal_moves->empty()
+            ? 0.0
+            : 1.0 / static_cast<double>(input.legal_moves->size());
         inspection.diagnostics.push_back({"legal_move_count", std::to_string(input.legal_moves->size())});
+        for (const Position move : *input.legal_moves) {
+            inspection.candidates.push_back({move, 0.0, policy});
+        }
     }
     return inspection;
 }
