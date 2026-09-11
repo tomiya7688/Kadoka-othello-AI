@@ -1,16 +1,20 @@
 {
-  "format": "kadoka.native_model.v1",
+  "format": "kadoka.model.v1",
   "model_id": "kadoka.obake_kadoka",
-  "occupied_neighbors": 0.45,
-  "empty_neighbors": -0.18,
-  "mixed_color": 1.1,
-  "color_transitions": 0.55,
-  "line_interest": 2.6,
-  "local_density": 0.3,
-  "early_center": 0.12,
-  "recent_retry_penalty": 0.08,
-  "inferred_illegal_retry_penalty": 0.005,
-  "exploration_floor": 0.025,
-  "randomizer_temperature": 1.65,
-  "memory_depth": 2
+  "model_kind": "character_evaluator_randomizer",
+  "engine": "builtin:kadoka.obake_kadoka",
+  "assets": [
+    {
+      "id": "evaluator",
+      "type": "kadoka.evaluator.linear.v1",
+      "path": "evaluator.json",
+      "required": true
+    },
+    {
+      "id": "behavior",
+      "type": "kadoka.character_behavior.v1",
+      "path": "behavior.json",
+      "required": true
+    }
+  ]
 }
