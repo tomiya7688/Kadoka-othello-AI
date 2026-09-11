@@ -11,6 +11,7 @@ add_library(kadoka_othello_core
     src/rules.cpp
     src/game.cpp
     src/state.cpp
+    src/ai.cpp
     src/headless.cpp
 )
 
