@@ -1,0 +1,14 @@
+{
+  "format": "kadoka.model.v1",
+  "model_id": "kadoka.sample.script_evaluator",
+  "model_kind": "script_evaluator_demo",
+  "engine": "builtin:sample.script_evaluator",
+  "assets": [
+    {
+      "id": "evaluator",
+      "type": "kadoka.script_evaluator.v1",
+      "path": "evaluator.json",
+      "required": true
+    }
+  ]
+}
