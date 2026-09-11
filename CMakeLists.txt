@@ -10,20 +10,31 @@ add_library(kadoka_othello_core
     src/board.cpp
     src/rules.cpp
     src/game.cpp
+    src/state.cpp
+    src/headless.cpp
 )
 
 target_include_directories(kadoka_othello_core
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_compile_features(kadoka_othello_core PUBLIC cxx_std_17)
+
+add_executable(kadoka_othello_headless
+    src/tools/headless_main.cpp
+)
+
+target_link_libraries(kadoka_othello_headless
+    PRIVATE
+        kadoka_othello_core
+)
 
 include(CTest)
 
 if(BUILD_TESTING)
     add_executable(kadoka_othello_core_tests
-        tests/core_tests.cpp
+        src/tests/core_tests.cpp
     )
 
     target_link_libraries(kadoka_othello_core_tests
