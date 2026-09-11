@@ -12,66 +12,45 @@ src/packages/obake_kadoka/
 
 It follows the same AI Creator package format used by other Kadoka models.
 
-## Creator usage
-
-```bat
-build\Release\kadoka_othello_ai_creator.exe analyze ^
-  src\packages\obake_kadoka\manifest.json ^
-  samples\position_8x8.txt ^
-  obake_kadoka.jsonl
-```
-
-The game consumes only the selected move. AI Creator additionally receives raw candidate evaluation scores, post-randomizer policy values, and diagnostics.
-
 ## Character behavior
 
 - legal-move input is discarded by `drop_legal_moves`
-- Kadoka evaluates every empty square without knowing the legal-move list
-- the evaluation function itself is intentionally sensible
-- the evaluated candidates are converted to randomizer weights instead of always choosing the maximum
+- Kadoka evaluates every empty square without asking whether it is legal
+- the evaluator is coherent, but it is not a normal Othello engine evaluator
+- candidate selection is randomized from the evaluator scores
 - the same board does not always produce the same move
-- recent 1-2 attempted squares are remembered
-- every attempt updates memory, including illegal attempts
-- therefore repeated illegal attempts eventually overwrite older memories
-- Kadoka may later retry a square it previously forgot
+- Kadoka remembers only the most recent 1-2 placement attempts
+- memory stores the attempted square and the board hash seen before the attempt
+- if Kadoka is called again with the same board hash, it infers that the previous attempt was rejected
+- rejected recent squares receive a very strong retry penalty
+- every new attempt overwrites short-term memory, including illegal attempts
+- forgotten attempts may later be retried
 
-This memory is deliberately character-like and is not used as deep search.
+## Obake-style evaluator
 
-## Obake-style evaluation
+The evaluator does not use the supplied legal move list and does not deliberately implement normal strategic Othello knowledge such as opening books, corner/X/C tables, parity, mobility search, or exact legal-move filtering.
 
-The square evaluator is separate from the randomizer. It scores every empty square using lightweight board features:
+Instead it judges whether an empty square *looks like a meaningful place to put a stone* from the visible local stone pattern.
 
-- corner preference
-- edge preference
-- X-square penalty while the related corner is empty
-- C-square penalty while the related corner is empty
-- occupied-neighbor density
-- frontier-like penalty from surrounding empty cells
-- bonus when both colors are present around the square
-- line-potential bonus when an occupied run terminates in the opposite color
-- mild center preference in early positions
+Current signals include:
 
-The evaluator does not consume the legal-move list and does not call the Core legal-move generator. It may therefore assign a high score to an illegal square. The game remains responsible for rejecting illegal attempts and asking Kadoka again.
+- number of occupied neighboring squares
+- penalty for isolated/open surroundings
+- whether both black and white stones touch the square
+- local color transitions along rays
+- line/bracket interest: a same-color run terminating in the opposite color
+- local density
+- a small early-game center tendency
 
-## Candidate randomizer
+The line/bracket signal is deliberately the strongest feature. This means Kadoka often prefers squares that would interact with or flip a meaningful run of stones for one of the two colors, even though Kadoka does not know whether that square is legal for its own side. If the game rejects the attempt, short-term memory makes an immediate retry unlikely.
 
-Raw evaluation score and move-selection probability are intentionally different values.
+This produces the intended character: the placement-evaluation function itself is sensible, but Kadoka does not understand the legal-move set.
 
-```text
-empty squares
-  -> evaluation score
-  -> temperature-scaled exponential weight
-  -> exploration floor
-  -> recent-attempt penalty
-  -> weighted random selection
-```
+## Expected play style
 
-AI Creator exposes:
+Kadoka should be clearly stronger than uniform random play because it strongly prefers locally active squares and bracket-like structures instead of arbitrary empty cells. It is intentionally not a strategic engine and should not be expected to play like a dan-level or search-based AI.
 
-- `candidate.value`: raw evaluation score
-- `candidate.policy`: normalized post-randomizer probability
-
-This makes the model inspectable while preserving its character behavior.
+The target character strength is roughly an average casual player / beginner-to-intermediate feel after illegal retries are filtered by the game. Actual strength must be measured by league games rather than assumed from the heuristic alone.
 
 ## Dataset-generation performance
 
@@ -83,20 +62,11 @@ The hot `think()` path:
 - does not launch a process
 - does not allocate a candidate vector
 - uses a fixed `std::array` for up to 10x10 = 100 cells
-- counts board phase information once per inference and reuses it for every candidate
 - does not build diagnostics
 - does not receive/copy legal moves after the adapter removes them
+- computes the board empty count only once per inference
+- keeps only a two-entry fixed-size attempt history
 
 `inspect()` intentionally performs additional allocations because it is a development/analysis path and returns all candidate values/policies plus diagnostics.
 
 For production self-play Dataset generation, use `think()` through the normal game/headless path.
-
-## Model file
-
-`model.json` uses:
-
-```text
-format = kadoka.native_model.v1
-```
-
-The engine implementation is separate from model parameters. This lets the same native engine load different parameter sets without changing the common AI protocol.
