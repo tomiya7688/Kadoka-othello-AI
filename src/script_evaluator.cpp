@@ -1,0 +1,171 @@
+#include "kadoka_othello/script_evaluator.hpp"
+
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+
+namespace kadoka::othello {
+namespace {
+
+std::string quote_arg(const std::string& value) {
+    std::string result = "\"";
+    for (char ch : value) {
+        if (ch == '"') result += '\\';
+        result += ch;
+    }
+    result += '"';
+    return result;
+}
+
+std::string read_all(const std::string& path) {
+    std::ifstream input(path);
+    if (!input) throw std::runtime_error("failed to open script evaluator config: " + path);
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    return buffer.str();
+}
+
+std::string find_string(const std::string& text, const std::string& key, const std::string& fallback = {}) {
+    const std::string token = "\"" + key + "\"";
+    const std::size_t key_pos = text.find(token);
+    if (key_pos == std::string::npos) return fallback;
+    const std::size_t colon = text.find(':', key_pos + token.size());
+    if (colon == std::string::npos) return fallback;
+    const std::size_t first = text.find('"', colon + 1);
+    if (first == std::string::npos) return fallback;
+    const std::size_t second = text.find('"', first + 1);
+    if (second == std::string::npos) return fallback;
+    return text.substr(first + 1, second - first - 1);
+}
+
+}  // namespace
+
+double ScriptEvaluatorResult::value_or(
+    const std::string& key,
+    double fallback) const noexcept {
+    for (const auto& item : values) {
+        if (item.key == key) return item.value;
+    }
+    return fallback;
+}
+
+ScriptEvaluator::ScriptEvaluator(ScriptEvaluatorConfig config)
+    : config_(std::move(config)) {
+    if (config_.script_path.empty()) {
+        throw std::invalid_argument("script evaluator requires script_path");
+    }
+}
+
+const ScriptEvaluatorConfig& ScriptEvaluator::config() const noexcept {
+    return config_;
+}
+
+std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
+    const std::vector<ScriptEvaluatorCase>& cases) const {
+    if (cases.empty()) return {};
+
+    namespace fs = std::filesystem;
+    const auto stamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    const fs::path temp_dir = fs::temp_directory_path();
+    const fs::path input_path = temp_dir / ("kadoka_script_eval_in_" + std::to_string(stamp) + ".txt");
+    const fs::path output_path = temp_dir / ("kadoka_script_eval_out_" + std::to_string(stamp) + ".txt");
+
+    {
+        std::ofstream output(input_path);
+        if (!output) throw std::runtime_error("failed to create script evaluator input");
+        output << "KADOKA_SCRIPT_EVALUATOR 1\n";
+        for (const auto& item : cases) {
+            output << "case " << item.id << '\n';
+            for (const auto& feature : item.features) {
+                output << "feature " << feature.key << ' ' << feature.value << '\n';
+            }
+            output << "end\n";
+        }
+    }
+
+    fs::path script = fs::absolute(config_.script_path);
+    std::string command = quote_arg(config_.executable) + " " + quote_arg(script.string());
+    command += " --kadoka-eval-input " + quote_arg(input_path.string());
+    command += " --kadoka-eval-output " + quote_arg(output_path.string());
+
+    const int exit_code = std::system(command.c_str());
+    if (exit_code != 0) {
+        fs::remove(input_path);
+        fs::remove(output_path);
+        throw std::runtime_error("script evaluator process failed with exit code " + std::to_string(exit_code));
+    }
+
+    std::ifstream input(output_path);
+    if (!input) {
+        fs::remove(input_path);
+        throw std::runtime_error("script evaluator did not create output");
+    }
+
+    std::vector<ScriptEvaluatorResult> results;
+    ScriptEvaluatorResult current;
+    bool active = false;
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream parser(line);
+        std::string kind;
+        parser >> kind;
+        if (kind == "result") {
+            if (active) results.push_back(std::move(current));
+            current = ScriptEvaluatorResult{};
+            parser >> current.id;
+            active = true;
+        } else if (kind == "value" && active) {
+            ScriptEvaluatorValue value;
+            parser >> value.key >> value.value;
+            current.values.push_back(std::move(value));
+        } else if (kind == "diag" && active) {
+            std::string pair;
+            parser >> pair;
+            const std::size_t equals = pair.find('=');
+            if (equals != std::string::npos) {
+                current.diagnostics.push_back({pair.substr(0, equals), pair.substr(equals + 1)});
+            }
+        } else if (kind == "end" && active) {
+            results.push_back(std::move(current));
+            current = ScriptEvaluatorResult{};
+            active = false;
+        }
+    }
+    if (active) results.push_back(std::move(current));
+
+    fs::remove(input_path);
+    fs::remove(output_path);
+
+    if (results.size() != cases.size()) {
+        throw std::runtime_error("script evaluator returned unexpected result count");
+    }
+    return results;
+}
+
+ScriptEvaluatorConfig load_script_evaluator_config(
+    const std::string& path,
+    const std::string& default_script_path) {
+    ScriptEvaluatorConfig config;
+    config.script_path = default_script_path;
+    if (path.empty()) return config;
+
+    const std::string text = read_all(path);
+    const std::string runtime = find_string(text, "runtime", "python_process");
+    if (runtime != "python_process") {
+        throw std::runtime_error("unsupported script evaluator runtime: " + runtime);
+    }
+    config.runtime = ScriptEvaluatorRuntime::PythonProcess;
+    config.executable = find_string(text, "executable", config.executable);
+    config.script_path = find_string(text, "script", config.script_path);
+
+    if (!config.script_path.empty() && std::filesystem::path(config.script_path).is_relative()) {
+        config.script_path = (std::filesystem::absolute(std::filesystem::path(path)).parent_path() /
+                              config.script_path).string();
+    }
+    return config;
+}
+
+}  // namespace kadoka::othello
