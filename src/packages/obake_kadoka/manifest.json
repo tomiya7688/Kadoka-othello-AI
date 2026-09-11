@@ -1,0 +1,12 @@
+{
+  "id": "kadoka.obake_kadoka",
+  "name": "Obake Kadoka",
+  "version": "0.1.0",
+  "protocol_version": 1,
+  "board_sizes": [6, 8, 10],
+  "interface": "native",
+  "adapter": "drop_legal_moves",
+  "entry": "builtin:kadoka.obake_kadoka",
+  "model": "model.json",
+  "capabilities": ["move", "inspection", "dataset_generation", "character_memory"]
+}
