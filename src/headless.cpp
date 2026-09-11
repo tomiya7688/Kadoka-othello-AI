@@ -1,13 +1,25 @@
 #include "kadoka_othello/headless.hpp"
 
 #include <ostream>
-#include <random>
 #include <stdexcept>
 
 namespace kadoka::othello {
 
-HeadlessSummary run_random_games(
+namespace {
+
+AIPackage package_for_player(
+    Player player,
+    AIPackage black,
+    AIPackage white) {
+    return player == Player::Black ? black : white;
+}
+
+}  // namespace
+
+HeadlessSummary run_games(
     const HeadlessConfig& config,
+    AIPackage black,
+    AIPackage white,
     std::ostream* dataset_output) {
     if (config.games == 0) {
         return {};
@@ -17,7 +29,10 @@ HeadlessSummary run_random_games(
         throw std::invalid_argument("board size must be an even number greater than or equal to 4");
     }
 
-    std::mt19937_64 rng(config.seed == 0 ? std::random_device{}() : config.seed);
+    if (config.max_invalid_attempts_per_turn == 0) {
+        throw std::invalid_argument("max_invalid_attempts_per_turn must be greater than zero");
+    }
+
     HeadlessSummary summary;
     summary.games = config.games;
 
@@ -33,9 +48,26 @@ HeadlessSummary run_random_games(
                 continue;
             }
 
-            std::uniform_int_distribution<std::size_t> pick(0, moves.size() - 1);
-            if (!game.play(moves[pick(rng)])) {
-                throw std::runtime_error("headless runner selected an invalid move");
+            const AIInput input{&game.board(), &moves};
+            const AIPackage current = package_for_player(
+                game.current_player(),
+                black,
+                white);
+
+            bool played = false;
+            for (std::size_t attempt = 0;
+                 attempt < config.max_invalid_attempts_per_turn;
+                 ++attempt) {
+                const AIOutput output = invoke_ai(current, input);
+                if (game.play(output.move)) {
+                    played = true;
+                    break;
+                }
+                ++summary.invalid_move_attempts;
+            }
+
+            if (!played) {
+                throw std::runtime_error("AI exceeded invalid move retry limit");
             }
 
             if (dataset_output != nullptr && config.write_json_lines) {
@@ -58,6 +90,20 @@ HeadlessSummary run_random_games(
     }
 
     return summary;
+}
+
+HeadlessSummary run_random_games(
+    const HeadlessConfig& config,
+    std::ostream* dataset_output) {
+    RandomAI black_ai(config.seed == 0 ? 0 : config.seed);
+    RandomAI white_ai(config.seed == 0 ? 0 : config.seed + 1);
+    PassThroughAdapter adapter;
+
+    return run_games(
+        config,
+        AIPackage{&black_ai, &adapter},
+        AIPackage{&white_ai, &adapter},
+        dataset_output);
 }
 
 }  // namespace kadoka::othello
