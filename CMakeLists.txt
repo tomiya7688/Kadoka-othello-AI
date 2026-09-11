@@ -12,6 +12,7 @@ add_library(kadoka_othello_core
     src/game.cpp
     src/state.cpp
     src/ai.cpp
+    src/ai_creator.cpp
     src/package.cpp
     src/package_loader.cpp
     src/model_data.cpp
