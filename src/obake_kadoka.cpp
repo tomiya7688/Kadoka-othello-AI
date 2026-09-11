@@ -194,13 +194,14 @@ std::size_t ObakeKadokaAI::collect_candidates(
         throw std::invalid_argument("ObakeKadokaAI supports boards up to 10x10");
     }
 
+    const std::size_t empty_cells = count_empty_cells(board);
     std::size_t count = 0;
     for (std::size_t row = 0; row < board.size(); ++row) {
         for (std::size_t col = 0; col < board.size(); ++col) {
             const Position move{row, col};
             if (board.at(move) != Cell::Empty) continue;
 
-            const double score = evaluate_position(board, move);
+            const double score = evaluate_position(board, move, empty_cells);
             candidates[count++] = WeightedMove{
                 move,
                 score,
@@ -211,7 +212,10 @@ std::size_t ObakeKadokaAI::collect_candidates(
     return count;
 }
 
-double ObakeKadokaAI::evaluate_position(const Board& board, Position move) const {
+double ObakeKadokaAI::evaluate_position(
+    const Board& board,
+    Position move,
+    std::size_t empty_cells) const {
     const std::size_t size = board.size();
     double score = 0.0;
 
@@ -252,7 +256,6 @@ double ObakeKadokaAI::evaluate_position(const Board& board, Position move) const
 
     score += static_cast<double>(line_potential(board, move)) * config_.line_potential_score;
 
-    const std::size_t empty_cells = count_empty_cells(board);
     const double empty_ratio = static_cast<double>(empty_cells) /
                                static_cast<double>(size * size);
     if (empty_ratio > 0.55) {
