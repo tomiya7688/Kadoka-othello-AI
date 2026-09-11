@@ -4,6 +4,7 @@
 
 #include "kadoka_othello/ai.hpp"
 #include "kadoka_othello/headless.hpp"
+#include "kadoka_othello/obake_kadoka.hpp"
 #include "kadoka_othello/state.hpp"
 
 using namespace kadoka::othello;
@@ -89,6 +90,28 @@ void test_random_ai_protocol() {
     assert(found);
 }
 
+void test_obake_kadoka_protocol() {
+    Game game(8);
+    const auto legal_moves = game.legal_moves();
+    ObakeKadokaAI kadoka(12345);
+    DropLegalMovesAdapter adapter;
+
+    const AIInspection inspection = inspect_ai(
+        AIPackage{&kadoka, &adapter},
+        AIInput{&game.board(), &legal_moves});
+
+    assert(game.board().at(inspection.output.move) == Cell::Empty);
+    assert(inspection.candidates.size() == 60);
+
+    bool legal_moves_used_is_false = false;
+    for (const auto& item : inspection.diagnostics) {
+        if (item.key == "legal_moves_used" && item.value == "false") {
+            legal_moves_used_is_false = true;
+        }
+    }
+    assert(legal_moves_used_is_false);
+}
+
 void test_headless_runner() {
     HeadlessConfig config;
     config.board_size = 6;
@@ -112,6 +135,7 @@ int main() {
     test_snapshot();
     test_ai_adapters();
     test_random_ai_protocol();
+    test_obake_kadoka_protocol();
     test_headless_runner();
     return 0;
 }
