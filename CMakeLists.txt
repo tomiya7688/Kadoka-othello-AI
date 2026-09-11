@@ -53,6 +53,15 @@ target_link_libraries(kadoka_othello_ai_creator
         kadoka_othello_core
 )
 
+add_executable(kadoka_script_evaluator_probe
+    src/tools/script_evaluator_probe.cpp
+)
+
+target_link_libraries(kadoka_script_evaluator_probe
+    PRIVATE
+        kadoka_othello_core
+)
+
 include(CTest)
 
 if(BUILD_TESTING)
