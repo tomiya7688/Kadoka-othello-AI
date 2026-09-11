@@ -12,6 +12,9 @@ add_library(kadoka_othello_core
     src/game.cpp
     src/state.cpp
     src/ai.cpp
+    src/package.cpp
+    src/package_loader.cpp
+    src/model_data.cpp
     src/headless.cpp
 )
 
@@ -27,6 +30,15 @@ add_executable(kadoka_othello_headless
 )
 
 target_link_libraries(kadoka_othello_headless
+    PRIVATE
+        kadoka_othello_core
+)
+
+add_executable(kadoka_othello_ai_creator
+    src/tools/ai_creator_main.cpp
+)
+
+target_link_libraries(kadoka_othello_ai_creator
     PRIVATE
         kadoka_othello_core
 )
