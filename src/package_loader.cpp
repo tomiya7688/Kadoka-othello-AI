@@ -34,7 +34,7 @@ std::unique_ptr<IAIEngine> make_native_engine(
         return std::make_unique<RandomAI>(seed);
     }
     if (manifest.id == "kadoka.obake_kadoka") {
-        const ObakeKadokaConfig config = load_obake_kadoka_config(resolve_model_path(manifest));
+        const ObakeKadokaConfig config = load_obake_kadoka_model(resolve_model_path(manifest));
         return std::make_unique<ObakeKadokaAI>(seed, config);
     }
     if (manifest.id == "kadoka.obake_maru") {
