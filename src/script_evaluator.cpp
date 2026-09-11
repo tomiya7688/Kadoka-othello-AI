@@ -41,6 +41,13 @@ std::string find_string(const std::string& text, const std::string& key, const s
     return text.substr(first + 1, second - first - 1);
 }
 
+ScriptEvaluatorRuntime parse_runtime(const std::string& value) {
+    if (value == "python_process") return ScriptEvaluatorRuntime::PythonProcess;
+    if (value == "native_process") return ScriptEvaluatorRuntime::NativeProcess;
+    if (value == "wasm") return ScriptEvaluatorRuntime::Wasm;
+    throw std::runtime_error("unsupported script evaluator runtime: " + value);
+}
+
 }  // namespace
 
 double ScriptEvaluatorResult::value_or(
@@ -52,15 +59,51 @@ double ScriptEvaluatorResult::value_or(
     return fallback;
 }
 
+const char* script_evaluator_runtime_name(
+    ScriptEvaluatorRuntime runtime) noexcept {
+    switch (runtime) {
+        case ScriptEvaluatorRuntime::PythonProcess: return "python_process";
+        case ScriptEvaluatorRuntime::NativeProcess: return "native_process";
+        case ScriptEvaluatorRuntime::Wasm: return "wasm";
+    }
+    return "unknown";
+}
+
 ScriptEvaluator::ScriptEvaluator(ScriptEvaluatorConfig config)
     : config_(std::move(config)) {
-    if (config_.script_path.empty()) {
-        throw std::invalid_argument("script evaluator requires script_path");
+    if (config_.entry_path.empty()) {
+        throw std::invalid_argument("script evaluator requires entry_path");
+    }
+    if (config_.runtime == ScriptEvaluatorRuntime::Wasm) {
+        throw std::runtime_error("WASM evaluator runtime is reserved but not implemented yet");
     }
 }
 
 const ScriptEvaluatorConfig& ScriptEvaluator::config() const noexcept {
     return config_;
+}
+
+std::string ScriptEvaluator::build_command(
+    const std::string& input_path,
+    const std::string& output_path) const {
+    namespace fs = std::filesystem;
+    const fs::path entry = fs::absolute(config_.entry_path);
+
+    std::string command;
+    switch (config_.runtime) {
+        case ScriptEvaluatorRuntime::PythonProcess:
+            command = quote_arg(config_.executable) + " " + quote_arg(entry.string());
+            break;
+        case ScriptEvaluatorRuntime::NativeProcess:
+            command = quote_arg(entry.string());
+            break;
+        case ScriptEvaluatorRuntime::Wasm:
+            throw std::runtime_error("WASM evaluator runtime is reserved but not implemented yet");
+    }
+
+    command += " --kadoka-eval-input " + quote_arg(input_path);
+    command += " --kadoka-eval-output " + quote_arg(output_path);
+    return command;
 }
 
 std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
@@ -86,16 +129,15 @@ std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
         }
     }
 
-    fs::path script = fs::absolute(config_.script_path);
-    std::string command = quote_arg(config_.executable) + " " + quote_arg(script.string());
-    command += " --kadoka-eval-input " + quote_arg(input_path.string());
-    command += " --kadoka-eval-output " + quote_arg(output_path.string());
-
+    const std::string command = build_command(input_path.string(), output_path.string());
     const int exit_code = std::system(command.c_str());
     if (exit_code != 0) {
         fs::remove(input_path);
         fs::remove(output_path);
-        throw std::runtime_error("script evaluator process failed with exit code " + std::to_string(exit_code));
+        throw std::runtime_error(
+            std::string("script evaluator process failed runtime=") +
+            script_evaluator_runtime_name(config_.runtime) +
+            " exit_code=" + std::to_string(exit_code));
     }
 
     std::ifstream input(output_path);
@@ -147,23 +189,28 @@ std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
 
 ScriptEvaluatorConfig load_script_evaluator_config(
     const std::string& path,
-    const std::string& default_script_path) {
+    const std::string& default_entry_path) {
     ScriptEvaluatorConfig config;
-    config.script_path = default_script_path;
+    config.entry_path = default_entry_path;
     if (path.empty()) return config;
 
     const std::string text = read_all(path);
-    const std::string runtime = find_string(text, "runtime", "python_process");
-    if (runtime != "python_process") {
-        throw std::runtime_error("unsupported script evaluator runtime: " + runtime);
-    }
-    config.runtime = ScriptEvaluatorRuntime::PythonProcess;
+    config.runtime = parse_runtime(find_string(text, "runtime", "python_process"));
     config.executable = find_string(text, "executable", config.executable);
-    config.script_path = find_string(text, "script", config.script_path);
 
-    if (!config.script_path.empty() && std::filesystem::path(config.script_path).is_relative()) {
-        config.script_path = (std::filesystem::absolute(std::filesystem::path(path)).parent_path() /
-                              config.script_path).string();
+    std::string entry;
+    if (config.runtime == ScriptEvaluatorRuntime::PythonProcess) {
+        entry = find_string(text, "script", config.entry_path);
+    } else if (config.runtime == ScriptEvaluatorRuntime::NativeProcess) {
+        entry = find_string(text, "program", config.entry_path);
+    } else {
+        entry = find_string(text, "module", config.entry_path);
+    }
+    config.entry_path = entry;
+
+    if (!config.entry_path.empty() && std::filesystem::path(config.entry_path).is_relative()) {
+        config.entry_path = (std::filesystem::absolute(std::filesystem::path(path)).parent_path() /
+                             config.entry_path).string();
     }
     return config;
 }
