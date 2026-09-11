@@ -82,6 +82,11 @@ target_link_libraries(kadoka_script_evaluator_probe
         kadoka_othello_runtime
 )
 
+# Reference implementation for runtime=native_process.
+add_executable(kadoka_native_evaluator_sample
+    samples/script_evaluator/native_evaluator.cpp
+)
+
 include(CTest)
 
 if(BUILD_TESTING)
