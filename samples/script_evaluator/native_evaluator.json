@@ -1,0 +1,5 @@
+{
+  "format": "kadoka.script_evaluator.v1",
+  "runtime": "native_process",
+  "program": "native_evaluator.exe"
+}
