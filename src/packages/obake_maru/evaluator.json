@@ -1,0 +1,9 @@
+{
+  "format": "kadoka.evaluator.simple.v1",
+  "weights": {
+    "occupied_neighbor_weight": 0.7,
+    "local_cluster_weight": 0.45,
+    "mixed_color_weight": 0.35,
+    "center_bias_weight": 0.2
+  }
+}
