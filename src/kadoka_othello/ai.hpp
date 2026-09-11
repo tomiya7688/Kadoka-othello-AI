@@ -19,6 +19,12 @@ struct AIOutput {
     Position move{};
 };
 
+struct AICandidate {
+    Position move{};
+    double value{};
+    double policy{};
+};
+
 struct AIDiagnostic {
     std::string key;
     std::string value;
@@ -26,6 +32,7 @@ struct AIDiagnostic {
 
 struct AIInspection {
     AIOutput output{};
+    std::vector<AICandidate> candidates;
     std::vector<AIDiagnostic> diagnostics;
 };
 
@@ -58,7 +65,7 @@ public:
     [[nodiscard]] virtual std::string id() const = 0;
     [[nodiscard]] virtual AIOutput think(const AdaptedAIInput& input) = 0;
 
-    // Development tools may request diagnostics. Games should use think() only.
+    // Development tools may request candidates and diagnostics. Games should use think() only.
     [[nodiscard]] virtual AIInspection inspect(const AdaptedAIInput& input);
 };
 
