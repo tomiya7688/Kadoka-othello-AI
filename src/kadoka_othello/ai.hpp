@@ -19,6 +19,16 @@ struct AIOutput {
     Position move{};
 };
 
+struct AIDiagnostic {
+    std::string key;
+    std::string value;
+};
+
+struct AIInspection {
+    AIOutput output{};
+    std::vector<AIDiagnostic> diagnostics;
+};
+
 struct AdaptedAIInput {
     const Board* board{nullptr};
     const std::vector<Position>* legal_moves{nullptr};
@@ -47,6 +57,9 @@ public:
 
     [[nodiscard]] virtual std::string id() const = 0;
     [[nodiscard]] virtual AIOutput think(const AdaptedAIInput& input) = 0;
+
+    // Development tools may request diagnostics. Games should use think() only.
+    [[nodiscard]] virtual AIInspection inspect(const AdaptedAIInput& input);
 };
 
 class RandomAI final : public IAIEngine {
@@ -55,6 +68,7 @@ public:
 
     [[nodiscard]] std::string id() const override;
     [[nodiscard]] AIOutput think(const AdaptedAIInput& input) override;
+    [[nodiscard]] AIInspection inspect(const AdaptedAIInput& input) override;
 
 private:
     std::mt19937_64 rng_;
@@ -66,6 +80,10 @@ struct AIPackage {
 };
 
 [[nodiscard]] AIOutput invoke_ai(
+    AIPackage package,
+    const AIInput& input);
+
+[[nodiscard]] AIInspection inspect_ai(
     AIPackage package,
     const AIInput& input);
 
