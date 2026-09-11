@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -56,7 +57,7 @@ public:
     [[nodiscard]] AIOutput think(const AdaptedAIInput& input) override;
 
 private:
-    std::uint64_t seed_;
+    std::mt19937_64 rng_;
 };
 
 struct AIPackage {
