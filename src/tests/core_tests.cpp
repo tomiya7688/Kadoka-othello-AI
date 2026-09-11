@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <sstream>
 
+#include "kadoka_othello/ai.hpp"
 #include "kadoka_othello/headless.hpp"
 #include "kadoka_othello/state.hpp"
 
@@ -52,6 +53,42 @@ void test_snapshot() {
     assert(snapshot_to_json(snapshot).find("\"board_size\":8") != std::string::npos);
 }
 
+void test_ai_adapters() {
+    Game game(8);
+    const auto legal_moves = game.legal_moves();
+    const AIInput input{&game.board(), &legal_moves};
+
+    PassThroughAdapter pass_through;
+    const auto passed = pass_through.adapt(input);
+    assert(passed.board == &game.board());
+    assert(passed.legal_moves == &legal_moves);
+
+    DropLegalMovesAdapter drop_legal_moves;
+    const auto dropped = drop_legal_moves.adapt(input);
+    assert(dropped.board == &game.board());
+    assert(dropped.legal_moves == nullptr);
+}
+
+void test_random_ai_protocol() {
+    Game game(8);
+    const auto legal_moves = game.legal_moves();
+    RandomAI random_ai(12345);
+    PassThroughAdapter adapter;
+
+    const AIOutput output = invoke_ai(
+        AIPackage{&random_ai, &adapter},
+        AIInput{&game.board(), &legal_moves});
+
+    bool found = false;
+    for (const Position move : legal_moves) {
+        if (move == output.move) {
+            found = true;
+            break;
+        }
+    }
+    assert(found);
+}
+
 void test_headless_runner() {
     HeadlessConfig config;
     config.board_size = 6;
@@ -61,6 +98,7 @@ void test_headless_runner() {
     const auto summary = run_random_games(config, &output);
     assert(summary.games == 4);
     assert(summary.black_wins + summary.white_wins + summary.draws == 4);
+    assert(summary.invalid_move_attempts == 0);
     assert(!output.str().empty());
 }
 
@@ -72,6 +110,8 @@ int main() {
     test_apply_move_and_flip();
     test_illegal_move_does_not_advance_turn();
     test_snapshot();
+    test_ai_adapters();
+    test_random_ai_protocol();
     test_headless_runner();
     return 0;
 }
