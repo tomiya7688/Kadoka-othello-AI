@@ -24,6 +24,8 @@ struct AIPackageManifest {
     std::string adapter{"pass_through"};
     std::string entry;
     std::vector<std::string> capabilities;
+    // Filled by load_ai_manifest(). Not serialized in manifest.json.
+    std::string source_directory;
 };
 
 [[nodiscard]] AIPackageManifest load_ai_manifest(const std::string& path);
