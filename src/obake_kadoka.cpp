@@ -7,22 +7,9 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <utility>
 
 namespace kadoka::othello {
 namespace {
-
-constexpr std::array<std::pair<int, int>, 8> kDirections{{
-    {-1, -1}, {-1, 0}, {-1, 1},
-    {0, -1},           {0, 1},
-    {1, -1},  {1, 0},  {1, 1},
-}};
-
-bool in_bounds(const Board& board, int row, int col) noexcept {
-    return row >= 0 && col >= 0 &&
-           row < static_cast<int>(board.size()) &&
-           col < static_cast<int>(board.size());
-}
 
 double read_number(const std::string& text, const std::string& key, double fallback) {
     const std::string token = "\"" + key + "\"";
@@ -57,54 +44,25 @@ std::size_t count_empty_cells(const Board& board) {
     return empty;
 }
 
-int count_line_interest(const Board& board, Position move) {
-    int interest = 0;
-    for (const auto [dr, dc] : kDirections) {
-        int row = static_cast<int>(move.row) + dr;
-        int col = static_cast<int>(move.col) + dc;
-        if (!in_bounds(board, row, col)) continue;
+void add_feature_diagnostics(
+    std::vector<AIDiagnostic>& diagnostics,
+    const ObakeKadokaFeatureVector& features,
+    const ObakeKadokaEvaluatorWeights& weights) {
+    diagnostics.push_back({"feature.occupied_neighbors", std::to_string(features.occupied_neighbors)});
+    diagnostics.push_back({"feature.empty_neighbors", std::to_string(features.empty_neighbors)});
+    diagnostics.push_back({"feature.mixed_color", std::to_string(features.mixed_color)});
+    diagnostics.push_back({"feature.color_transitions", std::to_string(features.color_transitions)});
+    diagnostics.push_back({"feature.line_interest", std::to_string(features.line_interest)});
+    diagnostics.push_back({"feature.local_density", std::to_string(features.local_density)});
+    diagnostics.push_back({"feature.early_center", std::to_string(features.early_center)});
 
-        const Cell first = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-        if (first == Cell::Empty) continue;
-
-        int run = 0;
-        while (in_bounds(board, row, col)) {
-            const Cell current = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-            if (current != first) break;
-            ++run;
-            row += dr;
-            col += dc;
-        }
-
-        if (run >= 1 && in_bounds(board, row, col)) {
-            const Cell terminal = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-            if (terminal != Cell::Empty && terminal != first) {
-                interest += std::min(run, 3);
-            }
-        }
-    }
-    return interest;
-}
-
-int count_color_transitions(const Board& board, Position move) {
-    int transitions = 0;
-    for (const auto [dr, dc] : kDirections) {
-        int row = static_cast<int>(move.row) + dr;
-        int col = static_cast<int>(move.col) + dc;
-        Cell previous = Cell::Empty;
-        int steps = 0;
-
-        while (in_bounds(board, row, col) && steps < 4) {
-            const Cell current = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-            if (current == Cell::Empty) break;
-            if (previous != Cell::Empty && current != previous) ++transitions;
-            previous = current;
-            row += dr;
-            col += dc;
-            ++steps;
-        }
-    }
-    return transitions;
+    diagnostics.push_back({"contrib.occupied_neighbors", std::to_string(features.occupied_neighbors * weights.occupied_neighbors)});
+    diagnostics.push_back({"contrib.empty_neighbors", std::to_string(features.empty_neighbors * weights.empty_neighbors)});
+    diagnostics.push_back({"contrib.mixed_color", std::to_string(features.mixed_color * weights.mixed_color)});
+    diagnostics.push_back({"contrib.color_transitions", std::to_string(features.color_transitions * weights.color_transitions)});
+    diagnostics.push_back({"contrib.line_interest", std::to_string(features.line_interest * weights.line_interest)});
+    diagnostics.push_back({"contrib.local_density", std::to_string(features.local_density * weights.local_density)});
+    diagnostics.push_back({"contrib.early_center", std::to_string(features.early_center * weights.early_center)});
 }
 
 }  // namespace
@@ -113,6 +71,7 @@ ObakeKadokaAI::ObakeKadokaAI(
     std::uint64_t seed,
     ObakeKadokaConfig config)
     : config_(config),
+      evaluator_(config.evaluator_weights),
       rng_(seed == 0 ? std::random_device{}() : seed) {
     config_.memory_depth = std::min<std::size_t>(config_.memory_depth, recent_.size());
     config_.randomizer_temperature = std::max(config_.randomizer_temperature, 0.05);
@@ -159,12 +118,15 @@ AIInspection ObakeKadokaAI::inspect(const AdaptedAIInput& input) {
     AIInspection inspection;
     inspection.output = AIOutput{selected};
     inspection.candidates.reserve(count);
+
+    const WeightedMove* selected_candidate = nullptr;
     for (std::size_t i = 0; i < count; ++i) {
         inspection.candidates.push_back(AICandidate{
             candidates[i].move,
-            candidates[i].score,
+            candidates[i].evaluation.score,
             total_weight > 0.0 ? candidates[i].weight / total_weight : 0.0,
         });
+        if (candidates[i].move == selected) selected_candidate = &candidates[i];
     }
 
     std::size_t inferred_rejected = 0;
@@ -173,12 +135,22 @@ AIInspection ObakeKadokaAI::inspect(const AdaptedAIInput& input) {
     }
 
     inspection.diagnostics.push_back({"engine", id()});
-    inspection.diagnostics.push_back({"strategy", "obake_local_evaluator_plus_randomizer"});
+    inspection.diagnostics.push_back({"strategy", "obake_tunable_evaluator_plus_randomizer"});
     inspection.diagnostics.push_back({"legal_moves_used", "false"});
     inspection.diagnostics.push_back({"memory_depth", std::to_string(config_.memory_depth)});
     inspection.diagnostics.push_back({"remembered_attempts", std::to_string(recent_count_)});
     inspection.diagnostics.push_back({"inferred_rejected_attempts", std::to_string(inferred_rejected)});
     inspection.diagnostics.push_back({"candidate_count", std::to_string(count)});
+    inspection.diagnostics.push_back({"randomizer_temperature", std::to_string(config_.randomizer_temperature)});
+
+    if (selected_candidate != nullptr) {
+        inspection.diagnostics.push_back({"selected_score", std::to_string(selected_candidate->evaluation.score)});
+        add_feature_diagnostics(
+            inspection.diagnostics,
+            selected_candidate->evaluation.features,
+            evaluator_.weights());
+    }
+
     return inspection;
 }
 
@@ -195,57 +167,16 @@ std::size_t ObakeKadokaAI::collect_candidates(
         for (std::size_t col = 0; col < board.size(); ++col) {
             const Position move{row, col};
             if (board.at(move) != Cell::Empty) continue;
-            const double score = evaluate_position(board, move, empty_cells);
-            candidates[count++] = WeightedMove{move, score, score_to_weight(score, move)};
+
+            const ObakeKadokaEvaluation evaluation = evaluator_.evaluate(board, move, empty_cells);
+            candidates[count++] = WeightedMove{
+                move,
+                evaluation,
+                score_to_weight(evaluation.score, move),
+            };
         }
     }
     return count;
-}
-
-double ObakeKadokaAI::evaluate_position(
-    const Board& board,
-    Position move,
-    std::size_t empty_cells) const {
-    int occupied_neighbors = 0;
-    int empty_neighbors = 0;
-    bool touches_black = false;
-    bool touches_white = false;
-
-    for (const auto [dr, dc] : kDirections) {
-        const int row = static_cast<int>(move.row) + dr;
-        const int col = static_cast<int>(move.col) + dc;
-        if (!in_bounds(board, row, col)) continue;
-
-        const Cell cell = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-        if (cell == Cell::Empty) {
-            ++empty_neighbors;
-        } else {
-            ++occupied_neighbors;
-            touches_black = touches_black || cell == Cell::Black;
-            touches_white = touches_white || cell == Cell::White;
-        }
-    }
-
-    double score = 0.0;
-    score += static_cast<double>(occupied_neighbors) * config_.occupied_neighbor_score;
-    score -= static_cast<double>(empty_neighbors) * config_.empty_neighbor_penalty;
-    score += static_cast<double>(occupied_neighbors * occupied_neighbors) * config_.local_density_score * 0.1;
-
-    if (touches_black && touches_white) score += config_.mixed_color_score;
-    score += static_cast<double>(count_color_transitions(board, move)) * config_.color_transition_score;
-    score += static_cast<double>(count_line_interest(board, move)) * config_.line_interest_score;
-
-    const double empty_ratio = static_cast<double>(empty_cells) /
-                               static_cast<double>(board.size() * board.size());
-    if (empty_ratio > 0.55) {
-        const double center = (static_cast<double>(board.size()) - 1.0) * 0.5;
-        const double distance =
-            std::abs(static_cast<double>(move.row) - center) +
-            std::abs(static_cast<double>(move.col) - center);
-        score += std::max(0.0, center * 2.0 - distance) * config_.center_early_score;
-    }
-
-    return score;
 }
 
 double ObakeKadokaAI::score_to_weight(double score, Position move) const noexcept {
@@ -326,13 +257,13 @@ ObakeKadokaConfig load_obake_kadoka_config(const std::string& path) {
     const std::string text = buffer.str();
 
     ObakeKadokaConfig config;
-    config.occupied_neighbor_score = read_number(text, "occupied_neighbor_score", config.occupied_neighbor_score);
-    config.empty_neighbor_penalty = read_number(text, "empty_neighbor_penalty", config.empty_neighbor_penalty);
-    config.mixed_color_score = read_number(text, "mixed_color_score", config.mixed_color_score);
-    config.color_transition_score = read_number(text, "color_transition_score", config.color_transition_score);
-    config.line_interest_score = read_number(text, "line_interest_score", config.line_interest_score);
-    config.local_density_score = read_number(text, "local_density_score", config.local_density_score);
-    config.center_early_score = read_number(text, "center_early_score", config.center_early_score);
+    config.evaluator_weights.occupied_neighbors = read_number(text, "occupied_neighbors", config.evaluator_weights.occupied_neighbors);
+    config.evaluator_weights.empty_neighbors = read_number(text, "empty_neighbors", config.evaluator_weights.empty_neighbors);
+    config.evaluator_weights.mixed_color = read_number(text, "mixed_color", config.evaluator_weights.mixed_color);
+    config.evaluator_weights.color_transitions = read_number(text, "color_transitions", config.evaluator_weights.color_transitions);
+    config.evaluator_weights.line_interest = read_number(text, "line_interest", config.evaluator_weights.line_interest);
+    config.evaluator_weights.local_density = read_number(text, "local_density", config.evaluator_weights.local_density);
+    config.evaluator_weights.early_center = read_number(text, "early_center", config.evaluator_weights.early_center);
     config.recent_retry_penalty = read_number(text, "recent_retry_penalty", config.recent_retry_penalty);
     config.inferred_illegal_retry_penalty = read_number(text, "inferred_illegal_retry_penalty", config.inferred_illegal_retry_penalty);
     config.exploration_floor = read_number(text, "exploration_floor", config.exploration_floor);
