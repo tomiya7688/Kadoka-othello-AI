@@ -1,11 +1,20 @@
 {
-  "format": "kadoka.native_model.v1",
+  "format": "kadoka.model.v1",
   "model_id": "kadoka.obake_maru",
-  "occupied_neighbor_weight": 0.7,
-  "local_cluster_weight": 0.45,
-  "mixed_color_weight": 0.35,
-  "center_bias_weight": 0.2,
-  "exploration_floor": 0.25,
-  "randomizer_temperature": 4.0,
-  "rejected_retry_penalty": 0.02
+  "model_kind": "character_evaluator_randomizer",
+  "engine": "builtin:kadoka.obake_maru",
+  "assets": [
+    {
+      "id": "evaluator",
+      "type": "kadoka.evaluator.simple.v1",
+      "path": "evaluator.json",
+      "required": true
+    },
+    {
+      "id": "behavior",
+      "type": "kadoka.character_behavior.v1",
+      "path": "behavior.json",
+      "required": true
+    }
+  ]
 }
