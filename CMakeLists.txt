@@ -12,6 +12,7 @@ add_library(kadoka_othello_core
     src/game.cpp
     src/state.cpp
     src/ai.cpp
+    src/obake_kadoka_evaluator.cpp
     src/obake_kadoka.cpp
     src/ai_creator.cpp
     src/package.cpp
