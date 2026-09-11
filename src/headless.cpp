@@ -1,5 +1,6 @@
 #include "kadoka_othello/headless.hpp"
 
+#include <ostream>
 #include <random>
 #include <stdexcept>
 
