@@ -168,4 +168,23 @@ ScriptEvaluatorConfig load_script_evaluator_config(
     return config;
 }
 
+ScriptEvaluator load_script_evaluator_asset(
+    const ModelRootDescriptor& model,
+    const std::string& asset_id) {
+    for (const auto& asset : model.assets) {
+        if (asset.id != asset_id) continue;
+        if (asset.type != "kadoka.script_evaluator.v1") {
+            throw std::runtime_error(
+                "model asset is not kadoka.script_evaluator.v1: " + asset_id);
+        }
+
+        const std::string config_path = find_model_asset_path(model, asset_id);
+        if (config_path.empty()) {
+            throw std::runtime_error("script evaluator asset path is empty: " + asset_id);
+        }
+        return ScriptEvaluator(load_script_evaluator_config(config_path));
+    }
+    throw std::runtime_error("script evaluator asset not found: " + asset_id);
+}
+
 }  // namespace kadoka::othello
