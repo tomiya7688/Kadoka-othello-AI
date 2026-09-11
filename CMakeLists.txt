@@ -6,7 +6,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(kadoka_othello_core
+# Runtime-only library used by games, headless execution and packaged AIs.
+# Keep Creator analysis/conversion/import code out of this target so hot-path
+# binaries do not carry development-tool dependencies.
+add_library(kadoka_othello_runtime
     src/board.cpp
     src/rules.cpp
     src/game.cpp
@@ -19,21 +22,38 @@ add_library(kadoka_othello_core
     src/obake_kadoka.cpp
     src/obake_maru_model.cpp
     src/obake_maru.cpp
-    src/ai_creator.cpp
     src/package.cpp
     src/package_loader.cpp
-    src/package_import.cpp
-    src/model_data.cpp
-    src/conversion.cpp
     src/headless.cpp
 )
 
-target_include_directories(kadoka_othello_core
+target_include_directories(kadoka_othello_runtime
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_features(kadoka_othello_core PUBLIC cxx_std_17)
+target_compile_features(kadoka_othello_runtime PUBLIC cxx_std_17)
+
+# AI Creator support library. This may depend on the runtime, but the runtime
+# must never depend on this target.
+add_library(kadoka_othello_creator_support
+    src/ai_creator.cpp
+    src/package_import.cpp
+    src/model_data.cpp
+    src/conversion.cpp
+)
+
+target_include_directories(kadoka_othello_creator_support
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_compile_features(kadoka_othello_creator_support PUBLIC cxx_std_17)
+
+target_link_libraries(kadoka_othello_creator_support
+    PUBLIC
+        kadoka_othello_runtime
+)
 
 add_executable(kadoka_othello_headless
     src/tools/headless_main.cpp
@@ -41,7 +61,7 @@ add_executable(kadoka_othello_headless
 
 target_link_libraries(kadoka_othello_headless
     PRIVATE
-        kadoka_othello_core
+        kadoka_othello_runtime
 )
 
 add_executable(kadoka_othello_ai_creator
@@ -50,7 +70,7 @@ add_executable(kadoka_othello_ai_creator
 
 target_link_libraries(kadoka_othello_ai_creator
     PRIVATE
-        kadoka_othello_core
+        kadoka_othello_creator_support
 )
 
 add_executable(kadoka_script_evaluator_probe
@@ -59,7 +79,7 @@ add_executable(kadoka_script_evaluator_probe
 
 target_link_libraries(kadoka_script_evaluator_probe
     PRIVATE
-        kadoka_othello_core
+        kadoka_othello_runtime
 )
 
 include(CTest)
@@ -71,7 +91,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(kadoka_othello_core_tests
         PRIVATE
-            kadoka_othello_core
+            kadoka_othello_runtime
     )
 
     add_test(
