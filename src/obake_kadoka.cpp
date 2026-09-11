@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -39,46 +39,12 @@ double read_number(const std::string& text, const std::string& key, double fallb
             text[end] == 'e' || text[end] == 'E')) {
         ++end;
     }
-    if (end == start) return fallback;
-    return std::stod(text.substr(start, end - start));
+    return end == start ? fallback : std::stod(text.substr(start, end - start));
 }
 
 std::size_t read_size(const std::string& text, const std::string& key, std::size_t fallback) {
     const double value = read_number(text, key, static_cast<double>(fallback));
     return value < 0.0 ? fallback : static_cast<std::size_t>(value);
-}
-
-bool is_corner(std::size_t size, Position move) noexcept {
-    const std::size_t last = size - 1;
-    return (move.row == 0 || move.row == last) &&
-           (move.col == 0 || move.col == last);
-}
-
-bool is_edge(std::size_t size, Position move) noexcept {
-    const std::size_t last = size - 1;
-    return move.row == 0 || move.row == last || move.col == 0 || move.col == last;
-}
-
-bool is_x_square(std::size_t size, Position move, Position& corner) noexcept {
-    const std::size_t last = size - 1;
-    if (move.row == 1 && move.col == 1) { corner = {0, 0}; return true; }
-    if (move.row == 1 && move.col + 2 == size) { corner = {0, last}; return true; }
-    if (move.row + 2 == size && move.col == 1) { corner = {last, 0}; return true; }
-    if (move.row + 2 == size && move.col + 2 == size) { corner = {last, last}; return true; }
-    return false;
-}
-
-bool is_c_square(std::size_t size, Position move, Position& corner) noexcept {
-    const std::size_t last = size - 1;
-    if (move.row == 0 && move.col == 1) { corner = {0, 0}; return true; }
-    if (move.row == 1 && move.col == 0) { corner = {0, 0}; return true; }
-    if (move.row == 0 && move.col + 2 == size) { corner = {0, last}; return true; }
-    if (move.row == 1 && move.col == last) { corner = {0, last}; return true; }
-    if (move.row == last && move.col == 1) { corner = {last, 0}; return true; }
-    if (move.row + 2 == size && move.col == 0) { corner = {last, 0}; return true; }
-    if (move.row == last && move.col + 2 == size) { corner = {last, last}; return true; }
-    if (move.row + 2 == size && move.col == last) { corner = {last, last}; return true; }
-    return false;
 }
 
 std::size_t count_empty_cells(const Board& board) {
@@ -91,9 +57,8 @@ std::size_t count_empty_cells(const Board& board) {
     return empty;
 }
 
-int line_potential(const Board& board, Position move) {
-    int potential = 0;
-
+int count_line_interest(const Board& board, Position move) {
+    int interest = 0;
     for (const auto [dr, dc] : kDirections) {
         int row = static_cast<int>(move.row) + dr;
         int col = static_cast<int>(move.col) + dc;
@@ -102,21 +67,44 @@ int line_potential(const Board& board, Position move) {
         const Cell first = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
         if (first == Cell::Empty) continue;
 
-        int length = 0;
+        int run = 0;
         while (in_bounds(board, row, col)) {
             const Cell current = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
             if (current != first) break;
-            ++length;
+            ++run;
             row += dr;
             col += dc;
         }
 
-        if (length == 0 || !in_bounds(board, row, col)) continue;
-        const Cell terminal = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
-        if (terminal != Cell::Empty && terminal != first) ++potential;
+        if (run >= 1 && in_bounds(board, row, col)) {
+            const Cell terminal = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
+            if (terminal != Cell::Empty && terminal != first) {
+                interest += std::min(run, 3);
+            }
+        }
     }
+    return interest;
+}
 
-    return potential;
+int count_color_transitions(const Board& board, Position move) {
+    int transitions = 0;
+    for (const auto [dr, dc] : kDirections) {
+        int row = static_cast<int>(move.row) + dr;
+        int col = static_cast<int>(move.col) + dc;
+        Cell previous = Cell::Empty;
+        int steps = 0;
+
+        while (in_bounds(board, row, col) && steps < 4) {
+            const Cell current = board.at({static_cast<std::size_t>(row), static_cast<std::size_t>(col)});
+            if (current == Cell::Empty) break;
+            if (previous != Cell::Empty && current != previous) ++transitions;
+            previous = current;
+            row += dr;
+            col += dc;
+            ++steps;
+        }
+    }
+    return transitions;
 }
 
 }  // namespace
@@ -136,37 +124,37 @@ std::string ObakeKadokaAI::id() const {
 }
 
 AIOutput ObakeKadokaAI::think(const AdaptedAIInput& input) {
-    if (input.board == nullptr) {
-        throw std::invalid_argument("ObakeKadokaAI requires board input");
-    }
+    if (input.board == nullptr) throw std::invalid_argument("ObakeKadokaAI requires board input");
+
+    const std::uint64_t board_hash = hash_board(*input.board);
+    infer_previous_attempt_result(board_hash);
 
     std::array<WeightedMove, 100> candidates{};
-    const std::size_t count = collect_candidates(*input.board, candidates);
-    if (count == 0) {
-        throw std::runtime_error("ObakeKadokaAI found no empty square");
-    }
+    const std::size_t empty_cells = count_empty_cells(*input.board);
+    const std::size_t count = collect_candidates(*input.board, candidates, empty_cells);
+    if (count == 0) throw std::runtime_error("ObakeKadokaAI found no empty square");
 
     const Position move = choose_weighted(candidates, count);
-    remember(move);
+    remember(move, board_hash);
     return AIOutput{move};
 }
 
 AIInspection ObakeKadokaAI::inspect(const AdaptedAIInput& input) {
-    if (input.board == nullptr) {
-        throw std::invalid_argument("ObakeKadokaAI requires board input");
-    }
+    if (input.board == nullptr) throw std::invalid_argument("ObakeKadokaAI requires board input");
+
+    const std::uint64_t board_hash = hash_board(*input.board);
+    infer_previous_attempt_result(board_hash);
 
     std::array<WeightedMove, 100> candidates{};
-    const std::size_t count = collect_candidates(*input.board, candidates);
-    if (count == 0) {
-        throw std::runtime_error("ObakeKadokaAI found no empty square");
-    }
+    const std::size_t empty_cells = count_empty_cells(*input.board);
+    const std::size_t count = collect_candidates(*input.board, candidates, empty_cells);
+    if (count == 0) throw std::runtime_error("ObakeKadokaAI found no empty square");
 
     double total_weight = 0.0;
     for (std::size_t i = 0; i < count; ++i) total_weight += candidates[i].weight;
 
     const Position selected = choose_weighted(candidates, count);
-    remember(selected);
+    remember(selected, board_hash);
 
     AIInspection inspection;
     inspection.output = AIOutput{selected};
@@ -178,35 +166,37 @@ AIInspection ObakeKadokaAI::inspect(const AdaptedAIInput& input) {
             total_weight > 0.0 ? candidates[i].weight / total_weight : 0.0,
         });
     }
+
+    std::size_t inferred_rejected = 0;
+    for (std::size_t i = 0; i < recent_count_; ++i) {
+        if (recent_[i].valid && recent_[i].inferred_rejected) ++inferred_rejected;
+    }
+
     inspection.diagnostics.push_back({"engine", id()});
-    inspection.diagnostics.push_back({"strategy", "obake_square_evaluation_plus_weighted_randomizer"});
+    inspection.diagnostics.push_back({"strategy", "obake_local_evaluator_plus_randomizer"});
     inspection.diagnostics.push_back({"legal_moves_used", "false"});
     inspection.diagnostics.push_back({"memory_depth", std::to_string(config_.memory_depth)});
+    inspection.diagnostics.push_back({"remembered_attempts", std::to_string(recent_count_)});
+    inspection.diagnostics.push_back({"inferred_rejected_attempts", std::to_string(inferred_rejected)});
     inspection.diagnostics.push_back({"candidate_count", std::to_string(count)});
-    inspection.diagnostics.push_back({"randomizer_temperature", std::to_string(config_.randomizer_temperature)});
     return inspection;
 }
 
 std::size_t ObakeKadokaAI::collect_candidates(
     const Board& board,
-    std::array<WeightedMove, 100>& candidates) const {
+    std::array<WeightedMove, 100>& candidates,
+    std::size_t empty_cells) const {
     if (board.size() * board.size() > candidates.size()) {
         throw std::invalid_argument("ObakeKadokaAI supports boards up to 10x10");
     }
 
-    const std::size_t empty_cells = count_empty_cells(board);
     std::size_t count = 0;
     for (std::size_t row = 0; row < board.size(); ++row) {
         for (std::size_t col = 0; col < board.size(); ++col) {
             const Position move{row, col};
             if (board.at(move) != Cell::Empty) continue;
-
             const double score = evaluate_position(board, move, empty_cells);
-            candidates[count++] = WeightedMove{
-                move,
-                score,
-                score_to_weight(score, is_recent(move)),
-            };
+            candidates[count++] = WeightedMove{move, score, score_to_weight(score, move)};
         }
     }
     return count;
@@ -216,20 +206,6 @@ double ObakeKadokaAI::evaluate_position(
     const Board& board,
     Position move,
     std::size_t empty_cells) const {
-    const std::size_t size = board.size();
-    double score = 0.0;
-
-    if (is_corner(size, move)) score += config_.corner_score;
-    else if (is_edge(size, move)) score += config_.edge_score;
-
-    Position related_corner{};
-    if (is_x_square(size, move, related_corner) && board.at(related_corner) == Cell::Empty) {
-        score -= config_.x_square_penalty;
-    }
-    if (is_c_square(size, move, related_corner) && board.at(related_corner) == Cell::Empty) {
-        score -= config_.c_square_penalty;
-    }
-
     int occupied_neighbors = 0;
     int empty_neighbors = 0;
     bool touches_black = false;
@@ -250,41 +226,68 @@ double ObakeKadokaAI::evaluate_position(
         }
     }
 
+    double score = 0.0;
     score += static_cast<double>(occupied_neighbors) * config_.occupied_neighbor_score;
     score -= static_cast<double>(empty_neighbors) * config_.empty_neighbor_penalty;
-    if (touches_black && touches_white) score += config_.mixed_color_score;
+    score += static_cast<double>(occupied_neighbors * occupied_neighbors) * config_.local_density_score * 0.1;
 
-    score += static_cast<double>(line_potential(board, move)) * config_.line_potential_score;
+    if (touches_black && touches_white) score += config_.mixed_color_score;
+    score += static_cast<double>(count_color_transitions(board, move)) * config_.color_transition_score;
+    score += static_cast<double>(count_line_interest(board, move)) * config_.line_interest_score;
 
     const double empty_ratio = static_cast<double>(empty_cells) /
-                               static_cast<double>(size * size);
+                               static_cast<double>(board.size() * board.size());
     if (empty_ratio > 0.55) {
-        const double center = (static_cast<double>(size) - 1.0) * 0.5;
+        const double center = (static_cast<double>(board.size()) - 1.0) * 0.5;
         const double distance =
             std::abs(static_cast<double>(move.row) - center) +
             std::abs(static_cast<double>(move.col) - center);
-        const double normalized = std::max(0.0, center * 2.0 - distance);
-        score += normalized * config_.center_early_score;
+        score += std::max(0.0, center * 2.0 - distance) * config_.center_early_score;
     }
 
     return score;
 }
 
-double ObakeKadokaAI::score_to_weight(double score, bool recent) const noexcept {
-    const double scaled = std::clamp(
-        score / config_.randomizer_temperature,
-        -12.0,
-        12.0);
+double ObakeKadokaAI::score_to_weight(double score, Position move) const noexcept {
+    const double scaled = std::clamp(score / config_.randomizer_temperature, -12.0, 12.0);
     double weight = std::exp(scaled) + config_.exploration_floor;
-    if (recent) weight *= config_.recent_retry_penalty;
+
+    const AttemptMemory* memory = find_recent(move);
+    if (memory != nullptr) {
+        weight *= memory->inferred_rejected
+            ? config_.inferred_illegal_retry_penalty
+            : config_.recent_retry_penalty;
+    }
     return std::max(weight, 0.000001);
 }
 
-bool ObakeKadokaAI::is_recent(Position move) const noexcept {
-    for (std::size_t i = 0; i < recent_count_; ++i) {
-        if (recent_[i] == move) return true;
+std::uint64_t ObakeKadokaAI::hash_board(const Board& board) const noexcept {
+    std::uint64_t hash = 1469598103934665603ULL;
+    hash ^= static_cast<std::uint64_t>(board.size());
+    hash *= 1099511628211ULL;
+    for (std::size_t row = 0; row < board.size(); ++row) {
+        for (std::size_t col = 0; col < board.size(); ++col) {
+            hash ^= static_cast<std::uint64_t>(board.at({row, col})) + 1ULL;
+            hash *= 1099511628211ULL;
+        }
     }
-    return false;
+    return hash;
+}
+
+void ObakeKadokaAI::infer_previous_attempt_result(std::uint64_t current_hash) noexcept {
+    if (recent_count_ == 0 || config_.memory_depth == 0) return;
+    const std::size_t last_index = recent_count_ < config_.memory_depth
+        ? recent_count_ - 1
+        : (recent_cursor_ + config_.memory_depth - 1) % config_.memory_depth;
+    AttemptMemory& last = recent_[last_index];
+    if (last.valid) last.inferred_rejected = last.board_hash == current_hash;
+}
+
+const ObakeKadokaAI::AttemptMemory* ObakeKadokaAI::find_recent(Position move) const noexcept {
+    for (std::size_t i = 0; i < recent_count_; ++i) {
+        if (recent_[i].valid && recent_[i].move == move) return &recent_[i];
+    }
+    return nullptr;
 }
 
 Position ObakeKadokaAI::choose_weighted(
@@ -302,41 +305,39 @@ Position ObakeKadokaAI::choose_weighted(
     return candidates[count - 1].move;
 }
 
-void ObakeKadokaAI::remember(Position move) noexcept {
+void ObakeKadokaAI::remember(Position move, std::uint64_t board_hash) noexcept {
     if (config_.memory_depth == 0) return;
+    AttemptMemory memory{move, board_hash, false, true};
     if (recent_count_ < config_.memory_depth) {
-        recent_[recent_count_++] = move;
+        recent_[recent_count_++] = memory;
         return;
     }
-    recent_[recent_cursor_] = move;
+    recent_[recent_cursor_] = memory;
     recent_cursor_ = (recent_cursor_ + 1) % config_.memory_depth;
 }
 
 ObakeKadokaConfig load_obake_kadoka_config(const std::string& path) {
     if (path.empty()) return {};
     std::ifstream input(path);
-    if (!input) {
-        throw std::runtime_error("failed to open Obake Kadoka model config: " + path);
-    }
+    if (!input) throw std::runtime_error("failed to open Obake Kadoka model config: " + path);
+
     std::ostringstream buffer;
     buffer << input.rdbuf();
     const std::string text = buffer.str();
 
     ObakeKadokaConfig config;
-    config.corner_score = read_number(text, "corner_score", config.corner_score);
-    config.edge_score = read_number(text, "edge_score", config.edge_score);
-    config.x_square_penalty = read_number(text, "x_square_penalty", config.x_square_penalty);
-    config.c_square_penalty = read_number(text, "c_square_penalty", config.c_square_penalty);
     config.occupied_neighbor_score = read_number(text, "occupied_neighbor_score", config.occupied_neighbor_score);
     config.empty_neighbor_penalty = read_number(text, "empty_neighbor_penalty", config.empty_neighbor_penalty);
     config.mixed_color_score = read_number(text, "mixed_color_score", config.mixed_color_score);
-    config.line_potential_score = read_number(text, "line_potential_score", config.line_potential_score);
+    config.color_transition_score = read_number(text, "color_transition_score", config.color_transition_score);
+    config.line_interest_score = read_number(text, "line_interest_score", config.line_interest_score);
+    config.local_density_score = read_number(text, "local_density_score", config.local_density_score);
     config.center_early_score = read_number(text, "center_early_score", config.center_early_score);
     config.recent_retry_penalty = read_number(text, "recent_retry_penalty", config.recent_retry_penalty);
+    config.inferred_illegal_retry_penalty = read_number(text, "inferred_illegal_retry_penalty", config.inferred_illegal_retry_penalty);
     config.exploration_floor = read_number(text, "exploration_floor", config.exploration_floor);
     config.randomizer_temperature = read_number(text, "randomizer_temperature", config.randomizer_temperature);
-    config.memory_depth = std::min<std::size_t>(
-        read_size(text, "memory_depth", config.memory_depth), 2U);
+    config.memory_depth = std::min<std::size_t>(read_size(text, "memory_depth", config.memory_depth), 2U);
     return config;
 }
 
