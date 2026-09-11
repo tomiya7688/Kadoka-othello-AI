@@ -38,7 +38,7 @@ std::unique_ptr<IAIEngine> make_native_engine(
         return std::make_unique<ObakeKadokaAI>(seed, config);
     }
     if (manifest.id == "kadoka.obake_maru") {
-        const ObakeMaruConfig config = load_obake_maru_config(resolve_model_path(manifest));
+        const ObakeMaruConfig config = load_obake_maru_model(resolve_model_path(manifest));
         return std::make_unique<ObakeMaruAI>(seed, config);
     }
     throw std::invalid_argument("unknown built-in native AI: " + manifest.id);
