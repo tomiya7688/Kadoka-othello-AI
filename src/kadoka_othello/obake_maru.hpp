@@ -58,5 +58,6 @@ private:
 };
 
 [[nodiscard]] ObakeMaruConfig load_obake_maru_config(const std::string& path);
+[[nodiscard]] ObakeMaruConfig load_obake_maru_model(const std::string& model_root_path);
 
 }  // namespace kadoka::othello
