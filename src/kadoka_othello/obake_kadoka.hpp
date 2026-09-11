@@ -46,7 +46,10 @@ private:
     [[nodiscard]] std::size_t collect_candidates(
         const Board& board,
         std::array<WeightedMove, 100>& candidates) const;
-    [[nodiscard]] double evaluate_position(const Board& board, Position move) const;
+    [[nodiscard]] double evaluate_position(
+        const Board& board,
+        Position move,
+        std::size_t empty_cells) const;
     [[nodiscard]] double score_to_weight(double score, bool recent) const noexcept;
     [[nodiscard]] bool is_recent(Position move) const noexcept;
     [[nodiscard]] Position choose_weighted(
