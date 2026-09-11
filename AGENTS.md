@@ -3,6 +3,12 @@
 ## Purpose
 C++17 Othello engine / AI development project with headless execution, model/package support, evaluator integration, and AI Creator tooling.
 
+## Standard workflow
+- `start_task.bat` -> selects the highest-priority open Issue and writes compact context to `.codex/next_issue.md`.
+- `finish_task.bat` -> runs the existing CMake Release build and CTest through `build.bat`.
+- `finish_pr.bat` -> runs the compact PR workflow through `pull_request.bat`.
+- The older `next_issue.bat` and `pull_request.bat` remain valid direct entrypoints.
+
 ## Build and test
 - Windows: run `build.bat`.
 - The script configures CMake, builds Release, and runs CTest.
@@ -18,7 +24,7 @@ C++17 Othello engine / AI development project with headless execution, model/pac
 ## Context discipline
 - If `.codex/next_issue.md` exists, read it immediately after this file and treat that issue as the current task.
 - Read only the `doc/*.md` files listed by `.codex/next_issue.md` plus files directly needed to implement the issue.
-- Do not preload the entire `doc/` directory.
+- Do not preload the entire `doc/` directory or scan all Issues.
 - Do not read full PR diffs for routine PR preparation; prefer changed file names, `git diff --stat` / `--shortstat`, commit summaries, and test results. Inspect full diffs only when needed to diagnose a problem.
 
 ## Key documents
