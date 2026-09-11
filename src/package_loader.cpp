@@ -111,7 +111,7 @@ public:
                     inspection.diagnostics.push_back({pair.substr(0, equals), pair.substr(equals + 1)});
                 }
             } else if (kind == "candidate") {
-                AICandidateInfo candidate;
+                AICandidate candidate;
                 parser >> candidate.move.row >> candidate.move.col >> candidate.value >> candidate.policy;
                 inspection.candidates.push_back(candidate);
             }
