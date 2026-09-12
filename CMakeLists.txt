@@ -6,6 +6,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+add_custom_target(kadoka_rule_check
+    COMMAND
+        ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/kadoka_rule_checker/script/kadoka_rule_checker.py
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Checking Kadoka coding rules"
+    VERBATIM
+)
+
 # Runtime-only library used by games, headless execution and packaged AIs.
 # Keep Creator analysis/conversion/import code out of this target so hot-path
 # binaries do not carry development-tool dependencies.
@@ -26,6 +38,8 @@ add_library(kadoka_othello_runtime
     src/package_loader.cpp
     src/headless.cpp
 )
+
+add_dependencies(kadoka_othello_runtime kadoka_rule_check)
 
 target_include_directories(kadoka_othello_runtime
     PUBLIC
