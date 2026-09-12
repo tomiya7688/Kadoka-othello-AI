@@ -20,9 +20,16 @@ build\Release\kadoka_othello_headless.exe 10000 8 dataset.jsonl 12345
 
 Arguments are `games board_size output.jsonl seed`.
 
+## Coding rules
+
+This project adopts the applicable parts of `tomiya7688/upd-commander-base-design`.
+See `doc/coding-rules.md` for project-specific rules and Runtime performance exceptions.
+
 ## Documents
 
 - `doc/architecture.md` - responsibility boundaries and source layout
+- `doc/coding-rules.md` - coding rules, dependency rules and performance exceptions
+- `doc/runtime-creator-boundary.md` - AI Runtime / AI Creator boundary
 - `doc/build.md` - build and runner usage
 - `doc/data-format.md` - GameSnapshot / JSON Lines format
 
