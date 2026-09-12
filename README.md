@@ -25,6 +25,13 @@ Arguments are `games board_size output.jsonl seed`.
 This project adopts the applicable parts of `tomiya7688/upd-commander-base-design`.
 See `doc/coding-rules.md` for project-specific rules and Runtime performance exceptions.
 
+## Licensing
+
+- Software, build scripts, and ordinary documentation: MIT License (`LICENSE`)
+- Kadoka (かどか) and Maru (まる) character materials: Obake Character License v1.1 (`CHARACTER_LICENSE.md`)
+- Other named AI-model characters, their settings, identity, and dedicated character assets: Kadoka AI Character License v1.0 (`AI_CHARACTER_LICENSE.md`)
+- A model's algorithm, trained weights, or dataset may have an additional individual license when explicitly specified.
+
 ## Documents
 
 - `doc/architecture.md` - responsibility boundaries and source layout
