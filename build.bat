@@ -9,6 +9,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
+where python >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] python was not found in PATH. Required by Kadoka rule checker.
+    exit /b 1
+)
+
 cmake -S . -B %BUILD_DIR%
 if errorlevel 1 exit /b 1
 
