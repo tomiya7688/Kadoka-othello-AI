@@ -7,6 +7,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "kadoka_othello/native_in_process_evaluator.hpp"
+
 namespace kadoka::othello {
 namespace {
 
@@ -44,6 +46,7 @@ std::string find_string(const std::string& text, const std::string& key, const s
 ScriptEvaluatorRuntime parse_runtime(const std::string& value) {
     if (value == "python_process") return ScriptEvaluatorRuntime::PythonProcess;
     if (value == "native_process") return ScriptEvaluatorRuntime::NativeProcess;
+    if (value == "native_in_process") return ScriptEvaluatorRuntime::NativeInProcess;
     if (value == "wasm") return ScriptEvaluatorRuntime::Wasm;
     throw std::runtime_error("unsupported script evaluator runtime: " + value);
 }
@@ -64,6 +67,7 @@ const char* script_evaluator_runtime_name(
     switch (runtime) {
         case ScriptEvaluatorRuntime::PythonProcess: return "python_process";
         case ScriptEvaluatorRuntime::NativeProcess: return "native_process";
+        case ScriptEvaluatorRuntime::NativeInProcess: return "native_in_process";
         case ScriptEvaluatorRuntime::Wasm: return "wasm";
     }
     return "unknown";
@@ -76,6 +80,11 @@ ScriptEvaluator::ScriptEvaluator(ScriptEvaluatorConfig config)
     }
     if (config_.runtime == ScriptEvaluatorRuntime::Wasm) {
         throw std::runtime_error("WASM evaluator runtime is reserved but not implemented yet");
+    }
+    if (config_.runtime == ScriptEvaluatorRuntime::NativeInProcess) {
+        native_in_process_ = std::make_shared<NativeInProcessEvaluator>(
+            config_.entry_path,
+            config_.symbol);
     }
 }
 
@@ -97,6 +106,8 @@ std::string ScriptEvaluator::build_command(
         case ScriptEvaluatorRuntime::NativeProcess:
             command = quote_arg(entry.string());
             break;
+        case ScriptEvaluatorRuntime::NativeInProcess:
+            throw std::logic_error("native_in_process evaluator does not build a process command");
         case ScriptEvaluatorRuntime::Wasm:
             throw std::runtime_error("WASM evaluator runtime is reserved but not implemented yet");
     }
@@ -109,6 +120,13 @@ std::string ScriptEvaluator::build_command(
 std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
     const std::vector<ScriptEvaluatorCase>& cases) const {
     if (cases.empty()) return {};
+
+    if (config_.runtime == ScriptEvaluatorRuntime::NativeInProcess) {
+        if (!native_in_process_) {
+            throw std::logic_error("native in-process evaluator was not initialized");
+        }
+        return native_in_process_->evaluate_batch(cases);
+    }
 
     namespace fs = std::filesystem;
     const auto stamp = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -197,12 +215,15 @@ ScriptEvaluatorConfig load_script_evaluator_config(
     const std::string text = read_all(path);
     config.runtime = parse_runtime(find_string(text, "runtime", "python_process"));
     config.executable = find_string(text, "executable", config.executable);
+    config.symbol = find_string(text, "symbol", config.symbol);
 
     std::string entry;
     if (config.runtime == ScriptEvaluatorRuntime::PythonProcess) {
         entry = find_string(text, "script", config.entry_path);
     } else if (config.runtime == ScriptEvaluatorRuntime::NativeProcess) {
         entry = find_string(text, "program", config.entry_path);
+    } else if (config.runtime == ScriptEvaluatorRuntime::NativeInProcess) {
+        entry = find_string(text, "library", config.entry_path);
     } else {
         entry = find_string(text, "module", config.entry_path);
     }
