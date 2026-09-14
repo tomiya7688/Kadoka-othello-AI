@@ -48,7 +48,9 @@ target_include_directories(kadoka_othello_runtime
 )
 
 target_compile_features(kadoka_othello_runtime PUBLIC cxx_std_17)
-target_link_libraries(kadoka_othello_runtime PRIVATE ${CMAKE_DL_LIBS})
+if(CMAKE_DL_LIBS)
+    target_link_libraries(kadoka_othello_runtime PRIVATE ${CMAKE_DL_LIBS})
+endif()
 
 # AI Creator support library. This may depend on the runtime, but the runtime
 # must never depend on this target.
