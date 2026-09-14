@@ -25,9 +25,13 @@ This file is a compact index of what is implemented now. It is not a replacement
 - `kadoka.script_evaluator.v1` is a Runtime feature.
 - `python_process` runtime is implemented.
 - `native_process` runtime is implemented.
-- Batch input is used so one board's candidate set can be evaluated in one process invocation.
+- `native_in_process` runtime is implemented as a stable C ABI DLL/SO path.
+- Native in-process output is returned through host-owned callbacks, so C++ containers do not cross the module ABI boundary.
+- Batch input is used for all runtimes.
 - `wasm` is reserved but not yet executable.
-- Native in-process evaluation is not yet implemented.
+- CMake builds a native in-process sample module and generates a runnable evaluator config in the build tree.
+- CTest includes a native in-process evaluator smoke test.
+- The evaluator probe supports repeated calls for simple runtime-latency comparison.
 
 ### Character AIs
 
@@ -49,13 +53,17 @@ This file is a compact index of what is implemented now. It is not a replacement
 
 - Analyze, batch analyze, compare and benchmark paths exist.
 - Package import and data/model conversion support exist.
-- `tools/next_issue.py` creates a compact next-task capsule.
+- Root `AI_CONTEXT.md` is the compact AI-assisted-development entrypoint.
+- `doc/context-routing.md` maps task categories to source/tests/docs/validation.
+- `tools/context_route.py` prints one route without loading unrelated documentation.
+- `tools/next_issue.py` creates a compact Goal / Required / Acceptance task capsule and routes it to the relevant subsystem.
 - `tools/kadoka_rule_checker/` checks mechanically verifiable project rules.
 - Rule checker is invoked from the normal CMake build before Runtime compilation.
 
 ## Open / Pending Work
 
-- Native in-process Script Evaluator for removing process/temp-file overhead.
+- Connect a production AI model that actually consumes `native_in_process` Script Evaluator assets during Headless/Creator inference; the Runtime evaluator path and smoke module exist, but no current character AI requires this asset yet.
+- Complete comparative performance measurements for `python_process` / `native_process` / `native_in_process` under identical inputs.
 - WASM Script Evaluator runtime.
 - CI enforcement of Runtime / Creator dependency direction.
 - Full Release build / test / benchmark verification of the current AI foundation.
