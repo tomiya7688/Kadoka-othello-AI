@@ -118,9 +118,10 @@ target_include_directories(kadoka_in_process_evaluator_sample
 target_compile_features(kadoka_in_process_evaluator_sample PUBLIC cxx_std_17)
 
 # Generate a runnable evaluator config in the build tree so no platform-specific
-# DLL/SO path needs to be committed to the source tree.
+# DLL/SO path needs to be committed to the source tree. Include the build
+# configuration in the output path for Visual Studio and other multi-config generators.
 file(GENERATE
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/in_process_evaluator.json"
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/in_process_evaluator.json"
     CONTENT "{\n  \"format\": \"kadoka.script_evaluator.v1\",\n  \"runtime\": \"native_in_process\",\n  \"library\": \"$<TARGET_FILE:kadoka_in_process_evaluator_sample>\",\n  \"symbol\": \"kadoka_script_evaluator_v1\"\n}\n"
 )
 
@@ -144,7 +145,7 @@ if(BUILD_TESTING)
     add_test(
         NAME kadoka_script_evaluator_in_process_smoke
         COMMAND kadoka_script_evaluator_probe
-            "${CMAKE_CURRENT_BINARY_DIR}/in_process_evaluator.json"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/in_process_evaluator.json"
             memory_bonus=2.0
             recall_penalty=0.4
     )
