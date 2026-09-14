@@ -29,6 +29,7 @@ add_library(kadoka_othello_runtime
     src/ai.cpp
     src/model_descriptor.cpp
     src/script_evaluator.cpp
+    src/native_in_process_evaluator.cpp
     src/obake_kadoka_evaluator.cpp
     src/obake_kadoka_model.cpp
     src/obake_kadoka.cpp
@@ -47,6 +48,7 @@ target_include_directories(kadoka_othello_runtime
 )
 
 target_compile_features(kadoka_othello_runtime PUBLIC cxx_std_17)
+target_link_libraries(kadoka_othello_runtime PRIVATE ${CMAKE_DL_LIBS})
 
 # AI Creator support library. This may depend on the runtime, but the runtime
 # must never depend on this target.
@@ -101,6 +103,25 @@ add_executable(kadoka_native_evaluator_sample
     samples/script_evaluator/native_evaluator.cpp
 )
 
+# Reference implementation for runtime=native_in_process.
+add_library(kadoka_in_process_evaluator_sample SHARED
+    samples/script_evaluator/in_process_evaluator.cpp
+)
+
+target_include_directories(kadoka_in_process_evaluator_sample
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_compile_features(kadoka_in_process_evaluator_sample PUBLIC cxx_std_17)
+
+# Generate a runnable evaluator config in the build tree so no platform-specific
+# DLL/SO path needs to be committed to the source tree.
+file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/in_process_evaluator.json"
+    CONTENT "{\n  \"format\": \"kadoka.script_evaluator.v1\",\n  \"runtime\": \"native_in_process\",\n  \"library\": \"$<TARGET_FILE:kadoka_in_process_evaluator_sample>\",\n  \"symbol\": \"kadoka_script_evaluator_v1\"\n}\n"
+)
+
 include(CTest)
 
 if(BUILD_TESTING)
@@ -116,5 +137,13 @@ if(BUILD_TESTING)
     add_test(
         NAME kadoka_othello_core_tests
         COMMAND kadoka_othello_core_tests
+    )
+
+    add_test(
+        NAME kadoka_script_evaluator_in_process_smoke
+        COMMAND kadoka_script_evaluator_probe
+            "${CMAKE_CURRENT_BINARY_DIR}/in_process_evaluator.json"
+            memory_bonus=2.0
+            recall_penalty=0.4
     )
 endif()
