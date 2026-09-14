@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 
 #include "kadoka_othello/script_evaluator_abi.h"
