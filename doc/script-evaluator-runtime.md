@@ -110,13 +110,19 @@ and is built as:
 kadoka_in_process_evaluator_sample
 ```
 
-CMake also generates a platform-correct evaluator config at:
+CMake also generates a platform-correct evaluator config under the build tree:
 
 ```text
-build/in_process_evaluator.json
+build/generated/<configuration>/in_process_evaluator.json
 ```
 
-The exact build path depends on the selected build directory.
+For Visual Studio Release builds this is normally:
+
+```text
+build/generated/Release/in_process_evaluator.json
+```
+
+Single-config generators may use an empty or build-type-specific configuration directory.
 
 ### wasm
 
