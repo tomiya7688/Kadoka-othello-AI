@@ -69,8 +69,13 @@ def gh_issues() -> list[dict]:
 
 def priority(issue: dict) -> tuple[int, int]:
     labels = {x.get("name", "").strip().lower() for x in issue.get("labels", [])}
-    rank = min((PRIORITY_LABELS[x] for x in labels if x in PRIORITY_LABELS), default=50)
-    return rank, int(issue["number"])
+    label_rank = min((PRIORITY_LABELS[x] for x in labels if x in PRIORITY_LABELS), default=50)
+
+    title = issue.get("title", "")
+    title_match = re.match(r"\s*\[P([0-3])\]", title, re.IGNORECASE)
+    title_rank = int(title_match.group(1)) if title_match else 50
+
+    return min(label_rank, title_rank), int(issue["number"])
 
 
 def compact(text: str, limit: int = 900) -> str:
@@ -109,7 +114,9 @@ def extract_section(body: str, names: tuple[str, ...], limit: int = 700) -> str 
                 break
             section.append(line)
         text = compact("\n".join(section), limit)
-        return None if text == "No description provided." else text
+        if text in {"No description provided.", "No usable description provided."}:
+            return None
+        return text
     return None
 
 
