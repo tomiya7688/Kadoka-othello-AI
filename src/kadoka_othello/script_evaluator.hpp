@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -8,6 +9,8 @@
 #include "kadoka_othello/model_descriptor.hpp"
 
 namespace kadoka::othello {
+
+class NativeInProcessEvaluator;
 
 struct ScriptEvaluatorFeature {
     std::string key;
@@ -37,6 +40,7 @@ struct ScriptEvaluatorResult {
 enum class ScriptEvaluatorRuntime {
     PythonProcess,
     NativeProcess,
+    NativeInProcess,
     Wasm,
 };
 
@@ -44,6 +48,7 @@ struct ScriptEvaluatorConfig {
     ScriptEvaluatorRuntime runtime{ScriptEvaluatorRuntime::PythonProcess};
     std::string entry_path;
     std::string executable{"python"};
+    std::string symbol{"kadoka_script_evaluator_v1"};
 };
 
 class ScriptEvaluator {
@@ -61,6 +66,7 @@ private:
         const std::string& output_path) const;
 
     ScriptEvaluatorConfig config_;
+    std::shared_ptr<NativeInProcessEvaluator> native_in_process_;
 };
 
 [[nodiscard]] ScriptEvaluatorConfig load_script_evaluator_config(
