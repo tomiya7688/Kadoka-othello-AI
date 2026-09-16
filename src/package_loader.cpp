@@ -7,6 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "kadoka_othello/external_ai_session.hpp"
 #include "kadoka_othello/obake_kadoka.hpp"
 #include "kadoka_othello/obake_maru.hpp"
 
@@ -25,6 +26,13 @@ std::string resolve_model_path(const AIPackageManifest& manifest) {
     fs::path path = fs::path(manifest.model);
     if (path.is_relative()) path = fs::path(manifest.source_directory) / path;
     return path.string();
+}
+
+std::filesystem::path resolve_entry_path(const AIPackageManifest& manifest) {
+    namespace fs = std::filesystem;
+    fs::path entry = fs::path(manifest.entry);
+    if (entry.is_relative()) entry = fs::path(manifest.source_directory) / entry;
+    return entry;
 }
 
 std::unique_ptr<IAIEngine> make_native_engine(
@@ -54,10 +62,53 @@ std::string quote_arg(const std::string& value) {
     return result;
 }
 
-class ExternalProcessAI final : public IAIEngine {
+class PersistentExternalProcessAI final : public IAIEngine {
 public:
-    ExternalProcessAI(AIPackageManifest manifest, bool python)
-        : manifest_(std::move(manifest)), python_(python) {}
+    PersistentExternalProcessAI(AIPackageManifest manifest, bool script)
+        : manifest_(std::move(manifest)),
+          session_(make_session_config(manifest_, script)) {}
+
+    std::string id() const override { return manifest_.id; }
+
+    AIOutput think(const AdaptedAIInput& input) override {
+        return session_.inspect(input).output;
+    }
+
+    AIInspection inspect(const AdaptedAIInput& input) override {
+        return session_.inspect(input);
+    }
+
+private:
+    static ExternalAISessionConfig make_session_config(
+        const AIPackageManifest& manifest,
+        bool script) {
+        const std::filesystem::path entry = resolve_entry_path(manifest);
+        ExternalAISessionConfig config;
+        config.response_timeout = std::chrono::milliseconds(manifest.timeout_ms);
+
+        if (script) {
+            config.executable = manifest.executable.empty() ? "python" : manifest.executable;
+            config.arguments = {entry.string(), "--kadoka-session"};
+        } else if (!manifest.executable.empty()) {
+            config.executable = manifest.executable;
+            config.arguments = {entry.string(), "--kadoka-session"};
+        } else {
+            config.executable = entry.string();
+            config.arguments = {"--kadoka-session"};
+        }
+        return config;
+    }
+
+    AIPackageManifest manifest_;
+    ExternalAISession session_;
+};
+
+// Compatibility transport for old external packages. New packages use
+// transport=persistent and never create request/response files per move.
+class LegacyOneshotExternalProcessAI final : public IAIEngine {
+public:
+    LegacyOneshotExternalProcessAI(AIPackageManifest manifest, bool script)
+        : manifest_(std::move(manifest)), script_(script) {}
 
     std::string id() const override { return manifest_.id; }
 
@@ -93,11 +144,16 @@ public:
             }
         }
 
-        fs::path entry = fs::path(manifest_.entry);
-        if (entry.is_relative()) entry = fs::path(manifest_.source_directory) / entry;
+        const fs::path entry = resolve_entry_path(manifest_);
         std::string command;
-        if (python_) command = "python " + quote_arg(entry.string());
-        else command = quote_arg(entry.string());
+        if (script_) {
+            const std::string executable = manifest_.executable.empty() ? "python" : manifest_.executable;
+            command = quote_arg(executable) + " " + quote_arg(entry.string());
+        } else if (!manifest_.executable.empty()) {
+            command = quote_arg(manifest_.executable) + " " + quote_arg(entry.string());
+        } else {
+            command = quote_arg(entry.string());
+        }
         command += " --kadoka-input " + quote_arg(request_path.string());
         command += " --kadoka-output " + quote_arg(response_path.string());
 
@@ -146,8 +202,17 @@ public:
 
 private:
     AIPackageManifest manifest_;
-    bool python_{};
+    bool script_{};
 };
+
+std::unique_ptr<IAIEngine> make_external_engine(
+    const AIPackageManifest& manifest,
+    bool script) {
+    if (manifest.transport == "legacy_oneshot") {
+        return std::make_unique<LegacyOneshotExternalProcessAI>(manifest, script);
+    }
+    return std::make_unique<PersistentExternalProcessAI>(manifest, script);
+}
 
 }  // namespace
 
@@ -163,10 +228,10 @@ LoadedAIPackage load_ai_package(
             loaded.engine = make_native_engine(manifest, seed);
             break;
         case AIPackageInterface::ExternalProcess:
-            loaded.engine = std::make_unique<ExternalProcessAI>(manifest, false);
+            loaded.engine = make_external_engine(manifest, false);
             break;
         case AIPackageInterface::Python:
-            loaded.engine = std::make_unique<ExternalProcessAI>(manifest, true);
+            loaded.engine = make_external_engine(manifest, true);
             break;
         case AIPackageInterface::DynamicLibrary:
         case AIPackageInterface::Network:
