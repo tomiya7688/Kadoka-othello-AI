@@ -15,6 +15,7 @@ Do not preload the whole repository, all docs, all Issues, or generated artifact
 - Runtime / Creator boundary: `doc/runtime-creator-boundary.md`
 - Coding rules and performance exceptions: `doc/coding-rules.md`
 - Current implementation state: `doc/current-state.md`
+- Sibling-project engineering policy: `doc/sibling-project-alignment.md`
 - Model/package contracts: `doc/model-format.md`, `doc/ai-package.md`
 - AI protocol: `doc/ai-protocol.md`, `doc/external-ai-protocol.md`
 - Current task: GitHub Issue or explicit user request
@@ -30,12 +31,22 @@ Do not preload the whole repository, all docs, all Issues, or generated artifact
 
 ## Important Invariants
 
+- Correctness comes before engine strength or optimization.
+- Canonical board state belongs to the Othello core/game. AI output is a proposal; `Game::play()` / rules validation remains authoritative.
+- Human/protocol/AI actions must not bypass authoritative rule application.
 - AI Runtime executes models; AI Creator creates, analyzes, converts and tunes them.
 - Runtime must not depend on Creator Support.
 - Normal game execution uses the light `think()` path; rich inspection is opt-in.
-- Performance-sensitive Runtime code may use documented coding-rule exceptions.
+- Random/character AI behavior should accept explicit seeds for reproducible tests and comparisons.
+- Performance-sensitive Runtime code may use documented coding-rule exceptions, but those exceptions must not reverse dependency direction.
 - 6x6 / 8x8 / 10x10 must remain supported unless a task explicitly narrows support.
 - Obake Kadoka / Maru character behavior must not gain conventional Othello knowledge accidentally.
+
+## Sibling Projects
+
+Kadoka Shougi AI and Kadoka Tetris AI are sibling projects. Before introducing a new CI/build/release pattern, common AI protocol, Runtime/tooling boundary, benchmark method, package convention or policy checker, briefly inspect `doc/sibling-project-alignment.md` and the relevant sibling implementation.
+
+Adopt useful methods, not game-specific code blindly.
 
 ## Ignore Normally
 
@@ -67,6 +78,7 @@ Baseline completion checks when the change is broad or shared:
 
 For random or character-AI behavior, prefer a fixed seed and bounded headless runs.
 For model/package changes, validate the actual package/assets rather than inferring from source only.
+For CI/build/distribution changes, source tests and built-artifact smoke are separate evidence.
 
 ## Working Rules
 
