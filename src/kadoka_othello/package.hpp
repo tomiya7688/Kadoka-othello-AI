@@ -26,6 +26,13 @@ struct AIPackageManifest {
     std::string model;
     std::string metadata;
     std::vector<std::string> capabilities;
+
+    // External/script runtime settings. Persistent stdin/stdout sessions are
+    // the default; legacy_oneshot keeps the old temp-file compatibility path.
+    std::string transport{"persistent"};
+    std::string executable;
+    std::size_t timeout_ms{5000};
+
     std::string source_directory;
 };
 
