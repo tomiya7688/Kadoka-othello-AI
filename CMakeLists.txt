@@ -32,6 +32,7 @@ add_library(kadoka_othello_runtime
     src/model_descriptor.cpp
     src/script_evaluator.cpp
     src/native_in_process_evaluator.cpp
+    src/external_ai_session.cpp
     src/obake_kadoka_evaluator.cpp
     src/obake_kadoka_model.cpp
     src/obake_kadoka.cpp
@@ -152,5 +153,24 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/in_process_evaluator.json"
             memory_bonus=2.0
             recall_penalty=0.4
+    )
+
+    add_executable(kadoka_external_ai_session_helper
+        src/tests/external_ai_session_helper.cpp
+    )
+
+    add_executable(kadoka_external_ai_session_test
+        src/tests/external_ai_session_test.cpp
+    )
+
+    target_link_libraries(kadoka_external_ai_session_test
+        PRIVATE
+            kadoka_othello_runtime
+    )
+
+    add_test(
+        NAME kadoka_external_ai_session_test
+        COMMAND kadoka_external_ai_session_test
+            "$<TARGET_FILE:kadoka_external_ai_session_helper>"
     )
 endif()
