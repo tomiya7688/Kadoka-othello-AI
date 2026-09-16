@@ -10,7 +10,16 @@ Current core supports 6x6 / 8x8 / 10x10 through the same variable-size board imp
 build.bat
 ```
 
-The script configures CMake, builds Release, and runs tests.
+The script runs the project rule checker through CMake, builds Release, and runs tests.
+
+## CI
+
+The sibling-project CI baseline is enabled:
+
+- Linux: CMake build + CTest + fixed-seed headless smoke
+- Windows: `build.bat` + fixed-seed headless smoke + developer build artifact upload
+
+The Windows artifact is currently a developer build, not yet a formally defined portable distribution package.
 
 ## Headless random games
 
@@ -44,6 +53,14 @@ These are indexes only. Source, tests, Issues and detailed specs remain the sour
 This project adopts the applicable parts of `tomiya7688/upd-commander-base-design`.
 See `doc/coding-rules.md` for project-specific rules and Runtime performance exceptions.
 
+C++ formatting/static-analysis baselines are shared with Kadoka Shougi AI through `.clang-format` and `.clang-tidy`.
+
+## Sibling projects
+
+Kadoka Shougi AI and Kadoka Tetris AI are sibling projects. Proven CI, validation, context-routing and architecture techniques should be cross-adopted when they solve the same problem without harming game-specific semantics or hot-path performance.
+
+See `doc/sibling-project-alignment.md`.
+
 ## Licensing
 
 - Software, build scripts, and ordinary documentation: MIT License (`LICENSE`)
@@ -56,6 +73,7 @@ See `doc/coding-rules.md` for project-specific rules and Runtime performance exc
 - `doc/architecture.md` - responsibility boundaries and source layout
 - `doc/current-state.md` - compact current implementation state
 - `doc/context-routing.md` - context and validation routing map
+- `doc/sibling-project-alignment.md` - cross-project engineering reuse policy
 - `doc/coding-rules.md` - coding rules, dependency rules and performance exceptions
 - `doc/runtime-creator-boundary.md` - AI Runtime / AI Creator boundary
 - `doc/model-format.md` - root model descriptor and asset structure
