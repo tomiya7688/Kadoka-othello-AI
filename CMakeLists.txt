@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(KADOKA_BUILD_AI_CREATOR "Build AI Creator support library and executable" ON)
+
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 add_custom_target(kadoka_rule_check
@@ -52,27 +54,6 @@ if(CMAKE_DL_LIBS)
     target_link_libraries(kadoka_othello_runtime PRIVATE ${CMAKE_DL_LIBS})
 endif()
 
-# AI Creator support library. This may depend on the runtime, but the runtime
-# must never depend on this target.
-add_library(kadoka_othello_creator_support
-    src/ai_creator.cpp
-    src/package_import.cpp
-    src/model_data.cpp
-    src/conversion.cpp
-)
-
-target_include_directories(kadoka_othello_creator_support
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-target_compile_features(kadoka_othello_creator_support PUBLIC cxx_std_17)
-
-target_link_libraries(kadoka_othello_creator_support
-    PUBLIC
-        kadoka_othello_runtime
-)
-
 add_executable(kadoka_othello_headless
     src/tools/headless_main.cpp
 )
@@ -82,14 +63,37 @@ target_link_libraries(kadoka_othello_headless
         kadoka_othello_runtime
 )
 
-add_executable(kadoka_othello_ai_creator
-    src/tools/ai_creator_main.cpp
-)
+# AI Creator is optional by design. Runtime/headless must remain buildable when
+# Creator support is disabled so the development path cannot become a runtime dependency.
+if(KADOKA_BUILD_AI_CREATOR)
+    add_library(kadoka_othello_creator_support
+        src/ai_creator.cpp
+        src/package_import.cpp
+        src/model_data.cpp
+        src/conversion.cpp
+    )
 
-target_link_libraries(kadoka_othello_ai_creator
-    PRIVATE
-        kadoka_othello_creator_support
-)
+    target_include_directories(kadoka_othello_creator_support
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    target_compile_features(kadoka_othello_creator_support PUBLIC cxx_std_17)
+
+    target_link_libraries(kadoka_othello_creator_support
+        PUBLIC
+            kadoka_othello_runtime
+    )
+
+    add_executable(kadoka_othello_ai_creator
+        src/tools/ai_creator_main.cpp
+    )
+
+    target_link_libraries(kadoka_othello_ai_creator
+        PRIVATE
+            kadoka_othello_creator_support
+    )
+endif()
 
 add_executable(kadoka_script_evaluator_probe
     src/tools/script_evaluator_probe.cpp
