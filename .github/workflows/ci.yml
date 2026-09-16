@@ -38,3 +38,12 @@ jobs:
 
       - name: Deterministic headless smoke
         run: ./build/kadoka_othello_headless 2 8 "" 12345
+
+      - name: Configure Runtime-only build
+        run: cmake -S . -B build-runtime -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKADOKA_BUILD_AI_CREATOR=OFF
+
+      - name: Build Runtime-only targets
+        run: cmake --build build-runtime --config Release --target kadoka_othello_headless kadoka_othello_core_tests --parallel 2
+
+      - name: Test Runtime-only build
+        run: ctest --test-dir build-runtime -C Release --output-on-failure
