@@ -22,7 +22,7 @@ load package
 -> request/result over pipes
 -> request/result over the same pipes
 -> ...
--> destroy package / stop process
+-> destroy package / close stdin
 ```
 
 This transport belongs to Runtime. AI Creator may load packages through it, but Runtime does not depend on Creator.
@@ -64,7 +64,7 @@ The old temp-file transport remains only for compatibility:
 
 New packages should not use `legacy_oneshot`.
 
-## Process startup
+## Process startup and shutdown
 
 Persistent executable packages are launched as:
 
@@ -78,11 +78,9 @@ Script packages are launched as:
 <executable> <entry> --kadoka-session
 ```
 
-The child process must remain alive and read requests from stdin until it receives:
+The child process remains alive and reads requests from stdin. Normal shutdown is signaled by stdin EOF when the package/session is destroyed. A child that does not exit promptly after EOF may be terminated by the runtime.
 
-```text
-quit
-```
+This avoids writing a shutdown command to a pipe after a crashed child has already closed it.
 
 ## Request protocol
 
@@ -143,6 +141,8 @@ The runtime reports an error when:
 - the response ID does not match the request;
 - the response is malformed;
 - no move is returned.
+
+On POSIX, writes to a child that has already closed stdin are converted to normal `EPIPE` errors instead of allowing `SIGPIPE` to terminate the game process.
 
 The external AI does not own the canonical board. Its move remains a proposal and the game core performs legality/state-transition validation.
 
