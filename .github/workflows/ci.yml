@@ -35,3 +35,6 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Deterministic headless smoke
+        run: ./build/kadoka_othello_headless 2 8 "" 12345
