@@ -38,6 +38,22 @@ Humans and AIs should ultimately reach the same authoritative game-action valida
 
 Responsibility separation is the default, but move generation, search, evaluation, rollout and other measured hot paths may use localized optimizations when abstraction overhead is meaningful. Performance exceptions must not break layer direction.
 
+## Shared AI backend vocabulary
+
+The sibling projects use the same conceptual execution-backend names even though their game-state/action types are different:
+
+- `native`
+- `dynamic_library`
+- `external_process`
+- `script`
+- `network`
+
+The backend only proposes an action/result. The authoritative game core still validates and applies it.
+
+Othello currently exposes `python` as a package-interface compatibility name for a Python script/process path. It maps conceptually to the shared `script` category; existing manifests do not need to be rewritten immediately.
+
+External/process/script transports must stay outside Core. High-throughput paths should prefer persistent sessions or in-process/native execution rather than per-move process startup.
+
 ## Methods adopted from siblings
 
 From Kadoka Shougi AI:
@@ -46,6 +62,7 @@ From Kadoka Shougi AI:
 - engine result is non-authoritative until core validation
 - C++ `.clang-format` / `.clang-tidy` baseline
 - narrow engine/runtime/core dependency direction
+- common `AIBackend` runner vocabulary for native/process/script/network adapters
 
 From Kadoka Tetris AI:
 
