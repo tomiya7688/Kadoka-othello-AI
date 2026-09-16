@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
@@ -15,7 +16,9 @@
 #else
 #include <cerrno>
 #include <csignal>
+#include <ctime>
 #include <poll.h>
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -130,6 +133,37 @@ std::string quote_windows_arg(const std::string& value) {
     }
     result.append(backslashes * 2, '\\');
     result.push_back('"');
+    return result;
+}
+
+#else
+
+ssize_t write_without_sigpipe(int fd, const void* data, std::size_t size) {
+    sigset_t blocked{};
+    sigset_t old_mask{};
+    sigset_t pending{};
+    sigemptyset(&blocked);
+    sigaddset(&blocked, SIGPIPE);
+
+    const int mask_result = pthread_sigmask(SIG_BLOCK, &blocked, &old_mask);
+    bool sigpipe_was_pending = false;
+    if (mask_result == 0 && sigpending(&pending) == 0) {
+        sigpipe_was_pending = sigismember(&pending, SIGPIPE) == 1;
+    }
+
+    const ssize_t result = ::write(fd, data, size);
+    const int saved_errno = errno;
+
+    if (result < 0 && saved_errno == EPIPE && mask_result == 0 && !sigpipe_was_pending) {
+        timespec no_wait{};
+        while (::sigtimedwait(&blocked, nullptr, &no_wait) < 0 && errno == EINTR) {
+        }
+    }
+
+    if (mask_result == 0) {
+        (void)pthread_sigmask(SIG_SETMASK, &old_mask, nullptr);
+    }
+    errno = saved_errno;
     return result;
 }
 
@@ -248,8 +282,13 @@ private:
 #else
         int child_stdin[2]{};
         int child_stdout[2]{};
-        if (::pipe(child_stdin) != 0 || ::pipe(child_stdout) != 0) {
-            throw std::runtime_error("failed to create external AI pipes");
+        if (::pipe(child_stdin) != 0) {
+            throw std::runtime_error("failed to create external AI stdin pipe");
+        }
+        if (::pipe(child_stdout) != 0) {
+            ::close(child_stdin[0]);
+            ::close(child_stdin[1]);
+            throw std::runtime_error("failed to create external AI stdout pipe");
         }
 
         const pid_t child = ::fork();
@@ -292,9 +331,6 @@ private:
     void stop() noexcept {
 #ifdef _WIN32
         if (stdin_write_ != nullptr) {
-            const char quit[] = "quit\n";
-            DWORD written = 0;
-            WriteFile(stdin_write_, quit, static_cast<DWORD>(sizeof(quit) - 1), &written, nullptr);
             CloseHandle(stdin_write_);
             stdin_write_ = nullptr;
         }
@@ -312,8 +348,6 @@ private:
         }
 #else
         if (stdin_fd_ >= 0) {
-            const char quit[] = "quit\n";
-            (void)::write(stdin_fd_, quit, sizeof(quit) - 1);
             ::close(stdin_fd_);
             stdin_fd_ = -1;
         }
@@ -321,7 +355,7 @@ private:
             int status = 0;
             for (int attempt = 0; attempt < 10; ++attempt) {
                 const pid_t result = ::waitpid(pid_, &status, WNOHANG);
-                if (result == pid_) {
+                if (result == pid_ || (result < 0 && errno == ECHILD)) {
                     pid_ = -1;
                     break;
                 }
@@ -354,9 +388,10 @@ private:
 #else
         std::size_t offset = 0;
         while (offset < data.size()) {
-            const ssize_t written = ::write(stdin_fd_, data.data() + offset, data.size() - offset);
+            const ssize_t written = write_without_sigpipe(stdin_fd_, data.data() + offset, data.size() - offset);
             if (written < 0) {
                 if (errno == EINTR) continue;
+                if (errno == EPIPE) throw std::runtime_error("external AI process closed stdin");
                 throw std::runtime_error("failed to write external AI request");
             }
             if (written == 0) throw std::runtime_error("external AI stdin closed");
