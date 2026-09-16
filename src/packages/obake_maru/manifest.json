@@ -8,5 +8,6 @@
   "adapter": "drop_legal_moves",
   "entry": "builtin:kadoka.obake_maru",
   "model": "model.json",
+  "metadata": "metadata.json",
   "capabilities": ["move", "inspection"]
 }
