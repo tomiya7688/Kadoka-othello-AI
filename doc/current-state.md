@@ -12,6 +12,7 @@ This file is a compact index of what is implemented now. It is not a replacement
 - AI package manifest loading.
 - Runtime and Creator Support are separate CMake targets.
 - Headless execution links Runtime only.
+- Canonical state changes remain owned by `Game` / rules; AI output is non-authoritative until applied successfully.
 
 ### Model / Package
 
@@ -60,13 +61,20 @@ This file is a compact index of what is implemented now. It is not a replacement
 - `tools/kadoka_rule_checker/` checks mechanically verifiable project rules.
 - Rule checker is invoked from the normal CMake build before Runtime compilation.
 
+### Quality / CI
+
+- `.clang-format` / `.clang-tidy` baseline is aligned with Kadoka Shougi AI, using this project's C++17 level.
+- Linux GitHub Actions workflow builds, runs CTest and executes a fixed-seed headless smoke.
+- Windows GitHub Actions workflow runs `build.bat`, executes the same bounded headless smoke and uploads developer build artifacts.
+- Sibling-project cross-adoption policy is documented in `doc/sibling-project-alignment.md`.
+
 ## Open / Pending Work
 
 - Connect a production AI model that actually consumes `native_in_process` Script Evaluator assets during Headless/Creator inference; the Runtime evaluator path and smoke module exist, but no current character AI requires this asset yet.
 - Complete comparative performance measurements for `python_process` / `native_process` / `native_in_process` under identical inputs.
 - WASM Script Evaluator runtime.
-- CI enforcement of Runtime / Creator dependency direction.
-- Full Release build / test / benchmark verification of the current AI foundation.
+- Observe/resolve any failures from the newly introduced Linux/Windows CI workflows; workflow definitions are committed, but a successful run must be treated as separate evidence.
+- Define a real portable distribution boundary before calling Windows developer artifacts a release/distribution package.
 - Additional rule-checker coverage where rules can be verified without noisy false positives.
 - Broader AI families planned in project Issues/specs are not implied to be implemented by this summary.
 
