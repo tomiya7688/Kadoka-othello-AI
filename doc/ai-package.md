@@ -22,12 +22,13 @@ AI Creator uses the following package layout as the standard form for Kadoka mod
 ```text
 my_ai/
   manifest.json
+  metadata.json
   model.json | model.bin | model-specific files
   optional runtime files
   optional assets/
 ```
 
-`manifest.json` is always the package entry point. `model` is optional for engines that do not require separate model data.
+`manifest.json` is always the package entry point. `model` is optional for engines that do not require separate model data. `metadata` is optional for legacy/internal packages but recommended for new distributable models.
 
 Example:
 
@@ -42,6 +43,7 @@ Example:
   "adapter": "drop_legal_moves",
   "entry": "builtin:kadoka.obake_kadoka",
   "model": "model.json",
+  "metadata": "metadata.json",
   "capabilities": ["move", "inspection", "dataset_generation"]
 }
 ```
@@ -60,21 +62,24 @@ Example:
 Optional:
 
 - `model`
+- `metadata`
 - `capabilities`
 
 ## Model files
 
-Kadoka native models use `kadoka.native_model.v1` as the initial lightweight configuration format when JSON parameters are enough.
-Large learned models may use binary weights while keeping the same manifest contract.
+`model.json` is the Othello model root descriptor and may reference evaluator, behavior, network, opening, search, scripted evaluator, or other assets. Large learned models may use binary weights while keeping the same package manifest contract.
 
-The engine implementation and model data are intentionally separate:
+The execution and metadata responsibilities are intentionally separate:
 
 ```text
-manifest -> engine selection
-manifest.model -> model/config data
+manifest -> engine selection / runtime entry
+manifest.model -> executable model/config/assets
+manifest.metadata -> Kadoka AI family identity/provenance/requirements/benchmark metadata
 ```
 
-This lets model packages be updated or distributed without changing the game protocol.
+This lets model packages be updated or distributed without changing the game protocol while still exposing common metadata to sibling-project tooling.
+
+`metadata.json` uses `kadoka.ai_metadata.v1`; see `doc/family-model-metadata.md`.
 
 ## Interface types
 
@@ -100,7 +105,10 @@ Initial adapters:
 ```text
 src/packages/obake_kadoka/
   manifest.json
+  metadata.json
   model.json
+  evaluator.json
+  behavior.json
 ```
 
 Obake Kadoka is intentionally implemented as a native model so Dataset generation can call it without process startup, JSON serialization, or temporary-file overhead.
