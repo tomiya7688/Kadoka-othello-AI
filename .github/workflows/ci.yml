@@ -45,5 +45,8 @@ jobs:
       - name: Build Runtime-only targets
         run: cmake --build build-runtime --config Release --target kadoka_othello_headless kadoka_othello_core_tests --parallel 2
 
-      - name: Test Runtime-only build
-        run: ctest --test-dir build-runtime -C Release --output-on-failure
+      - name: Test Runtime-only core
+        run: ctest --test-dir build-runtime -C Release -R '^kadoka_othello_core_tests$' --output-on-failure
+
+      - name: Smoke Runtime-only headless
+        run: ./build-runtime/kadoka_othello_headless 2 8 "" 12345
