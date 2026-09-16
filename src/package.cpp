@@ -110,10 +110,16 @@ AIPackageManifest load_ai_manifest(const std::string& path) {
     manifest.model = find_string(json, "model");
     manifest.metadata = find_string(json, "metadata");
     manifest.capabilities = find_string_array(json, "capabilities");
+    manifest.transport = find_string(json, "transport", "persistent");
+    manifest.executable = find_string(json, "executable");
+    manifest.timeout_ms = find_number(json, "timeout_ms", 5000);
     manifest.source_directory = std::filesystem::path(path).parent_path().string();
 
     if (manifest.id.empty() || manifest.name.empty() || manifest.version.empty()) {
         throw std::invalid_argument("AI manifest requires id, name and version");
+    }
+    if (manifest.transport != "persistent" && manifest.transport != "legacy_oneshot") {
+        throw std::invalid_argument("unknown AI transport: " + manifest.transport);
     }
     return manifest;
 }
