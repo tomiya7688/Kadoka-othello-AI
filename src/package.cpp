@@ -108,6 +108,7 @@ AIPackageManifest load_ai_manifest(const std::string& path) {
     manifest.adapter = find_string(json, "adapter", "pass_through");
     manifest.entry = find_string(json, "entry");
     manifest.model = find_string(json, "model");
+    manifest.metadata = find_string(json, "metadata");
     manifest.capabilities = find_string_array(json, "capabilities");
     manifest.source_directory = std::filesystem::path(path).parent_path().string();
 
