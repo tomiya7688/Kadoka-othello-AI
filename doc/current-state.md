@@ -11,6 +11,7 @@ This file is a compact index of what is implemented now. It is not a replacement
 - Common AI input/output contract and adapters.
 - AI package manifest loading.
 - Runtime and Creator Support are separate CMake targets.
+- `KADOKA_BUILD_AI_CREATOR=OFF` provides a Runtime-only CMake configuration; Headless/core tests build without Creator Support.
 - Headless execution links Runtime only.
 - Canonical state changes remain owned by `Game` / rules; AI output is non-authoritative until applied successfully.
 
@@ -64,8 +65,9 @@ This file is a compact index of what is implemented now. It is not a replacement
 ### Quality / CI
 
 - `.clang-format` / `.clang-tidy` baseline is aligned with Kadoka Shougi AI, using this project's C++17 level.
-- Linux GitHub Actions workflow builds, runs CTest and executes a fixed-seed headless smoke.
-- Windows GitHub Actions workflow runs `build.bat`, executes the same bounded headless smoke and uploads developer build artifacts.
+- Linux GitHub Actions builds, runs CTest, executes a fixed-seed headless smoke, and separately verifies a Creator-disabled Runtime-only configuration.
+- Windows GitHub Actions runs `build.bat`, executes the same bounded headless smoke and uploads developer build artifacts.
+- The 2026-09-16 Linux and Windows workflows both passed after CI exposed and we fixed an AI Creator format-listing compile mismatch.
 - Sibling-project cross-adoption policy is documented in `doc/sibling-project-alignment.md`.
 
 ## Open / Pending Work
@@ -73,7 +75,6 @@ This file is a compact index of what is implemented now. It is not a replacement
 - Connect a production AI model that actually consumes `native_in_process` Script Evaluator assets during Headless/Creator inference; the Runtime evaluator path and smoke module exist, but no current character AI requires this asset yet.
 - Complete comparative performance measurements for `python_process` / `native_process` / `native_in_process` under identical inputs.
 - WASM Script Evaluator runtime.
-- Observe/resolve any failures from the newly introduced Linux/Windows CI workflows; workflow definitions are committed, but a successful run must be treated as separate evidence.
 - Define a real portable distribution boundary before calling Windows developer artifacts a release/distribution package.
 - Additional rule-checker coverage where rules can be verified without noisy false positives.
 - Broader AI families planned in project Issues/specs are not implied to be implemented by this summary.
