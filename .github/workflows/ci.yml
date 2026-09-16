@@ -27,6 +27,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate family model metadata
+        run: >-
+          python tools/family_metadata/script/validate_metadata.py --game othello
+          src/packages/obake_kadoka/metadata.json
+          src/packages/obake_maru/metadata.json
+
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 
