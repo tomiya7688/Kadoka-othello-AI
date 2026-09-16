@@ -24,6 +24,7 @@ struct AIPackageManifest {
     std::string adapter{"pass_through"};
     std::string entry;
     std::string model;
+    std::string metadata;
     std::vector<std::string> capabilities;
     std::string source_directory;
 };
