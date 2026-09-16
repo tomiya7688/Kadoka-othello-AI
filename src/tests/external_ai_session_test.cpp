@@ -4,8 +4,11 @@
 #include <chrono>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "kadoka_othello/game.hpp"
+#include "kadoka_othello/state.hpp"
 
 using namespace kadoka::othello;
 
