@@ -7,6 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "kadoka_othello/evaluator_ai.hpp"
 #include "kadoka_othello/external_ai_session.hpp"
 #include "kadoka_othello/obake_kadoka.hpp"
 #include "kadoka_othello/obake_maru.hpp"
@@ -49,6 +50,15 @@ std::unique_ptr<IAIEngine> make_native_engine(
         const ObakeMaruConfig config = load_obake_maru_model(resolve_model_path(manifest));
         return std::make_unique<ObakeMaruAI>(seed, config);
     }
+
+    const std::string model_path = resolve_model_path(manifest);
+    if (!model_path.empty()) {
+        const ModelRootDescriptor model = load_model_root_descriptor(model_path);
+        if (model.engine == "kadoka.evaluator_ai.v1") {
+            return std::make_unique<EvaluatorAI>(manifest.id, model);
+        }
+    }
+
     throw std::invalid_argument("unknown built-in native AI: " + manifest.id);
 }
 
