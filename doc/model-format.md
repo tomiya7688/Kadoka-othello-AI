@@ -73,6 +73,31 @@ Examples:
 
 The logical `features batch -> values/diagnostics` contract remains the same across runtimes. See `doc/script-evaluator-runtime.md` for the process protocol and native in-process ABI.
 
+## Evaluator AI engine
+
+A package that wants the Script Evaluator itself to score legal moves can use:
+
+```json
+{
+  "format": "kadoka.model.v1",
+  "model_id": "my.evaluator.model",
+  "model_kind": "evaluator_ai",
+  "engine": "kadoka.evaluator_ai.v1",
+  "assets": [
+    {
+      "id": "evaluator",
+      "type": "kadoka.script_evaluator.v1",
+      "path": "evaluator.json",
+      "required": true
+    }
+  ]
+}
+```
+
+The package remains `interface: "native"`: the C++ Runtime engine owns candidate generation/batching and the evaluator asset owns candidate scoring. Changing `evaluator.json` from `python_process` to `native_process` or `native_in_process` does not change the game-facing AI protocol.
+
+This is the preferred composition when evaluator code is model data/logic but move validation and package execution must remain inside the authoritative C++ Runtime.
+
 ## Complex model layout
 
 Example:
