@@ -1,5 +1,6 @@
 #include "kadoka_othello/headless.hpp"
 
+#include <chrono>
 #include <ostream>
 #include <stdexcept>
 
@@ -12,6 +13,47 @@ AIPackage package_for_player(
     AIPackage black,
     AIPackage white) {
     return player == Player::Black ? black : white;
+}
+
+AIOutput invoke_with_optional_timing(
+    const HeadlessConfig& config,
+    HeadlessSummary& summary,
+    AIPackage package,
+    const AIInput& input) {
+    if (!config.collect_metrics) {
+        return invoke_ai(package, input);
+    }
+
+    const auto start = std::chrono::steady_clock::now();
+    const AIOutput output = invoke_ai(package, input);
+    const auto end = std::chrono::steady_clock::now();
+    const double elapsed_us = std::chrono::duration<double, std::micro>(end - start).count();
+
+    ++summary.ai_calls;
+    summary.total_ai_think_us += elapsed_us;
+    if (elapsed_us > summary.max_ai_think_us) {
+        summary.max_ai_think_us = elapsed_us;
+    }
+    return output;
+}
+
+void record_turn_metrics(
+    const HeadlessConfig& config,
+    HeadlessSummary& summary,
+    std::size_t invalid_attempts) {
+    ++summary.turns;
+    if (!config.collect_metrics) return;
+
+    if (invalid_attempts > 0) {
+        ++summary.turns_with_invalid_attempts;
+    }
+    if (invalid_attempts > summary.max_invalid_attempts_in_turn) {
+        summary.max_invalid_attempts_in_turn = invalid_attempts;
+    }
+    if (summary.invalid_attempt_histogram.size() <= invalid_attempts) {
+        summary.invalid_attempt_histogram.resize(invalid_attempts + 1, 0);
+    }
+    ++summary.invalid_attempt_histogram[invalid_attempts];
 }
 
 }  // namespace
@@ -55,20 +97,28 @@ HeadlessSummary run_games(
                 white);
 
             bool played = false;
+            std::size_t invalid_attempts_this_turn = 0;
             for (std::size_t attempt = 0;
                  attempt < config.max_invalid_attempts_per_turn;
                  ++attempt) {
-                const AIOutput output = invoke_ai(current, input);
+                const AIOutput output = invoke_with_optional_timing(
+                    config,
+                    summary,
+                    current,
+                    input);
                 if (game.play(output.move)) {
                     played = true;
                     break;
                 }
                 ++summary.invalid_move_attempts;
+                ++invalid_attempts_this_turn;
             }
 
             if (!played) {
                 throw std::runtime_error("AI exceeded invalid move retry limit");
             }
+
+            record_turn_metrics(config, summary, invalid_attempts_this_turn);
 
             if (dataset_output != nullptr && config.write_json_lines) {
                 *dataset_output << snapshot_to_json(make_snapshot(game)) << '\n';
