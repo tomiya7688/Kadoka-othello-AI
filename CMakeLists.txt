@@ -74,6 +74,28 @@ target_link_libraries(kadoka_headless_benchmark
         kadoka_othello_runtime
 )
 
+# League orchestration is intentionally outside the runtime library. It uses the
+# same packaged AI/headless path without becoming a dependency of game binaries.
+add_library(kadoka_othello_league_support
+    src/league.cpp
+)
+
+target_link_libraries(kadoka_othello_league_support
+    PUBLIC
+        kadoka_othello_runtime
+)
+
+target_compile_features(kadoka_othello_league_support PUBLIC cxx_std_17)
+
+add_executable(kadoka_ai_league
+    src/tools/ai_league_main.cpp
+)
+
+target_link_libraries(kadoka_ai_league
+    PRIVATE
+        kadoka_othello_league_support
+)
+
 # AI Creator is optional by design. Runtime/headless must remain buildable when
 # Creator support is disabled so the development path cannot become a runtime dependency.
 if(KADOKA_BUILD_AI_CREATOR)
@@ -186,6 +208,33 @@ if(BUILD_TESTING)
     add_test(
         NAME kadoka_othello_core_tests
         COMMAND kadoka_othello_core_tests
+    )
+
+    add_executable(kadoka_othello_league_tests
+        src/tests/league_tests.cpp
+    )
+
+    target_link_libraries(kadoka_othello_league_tests
+        PRIVATE
+            kadoka_othello_league_support
+    )
+
+    add_test(
+        NAME kadoka_othello_league_tests
+        COMMAND kadoka_othello_league_tests
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+    )
+
+    add_test(
+        NAME kadoka_ai_league_smoke
+        COMMAND kadoka_ai_league
+            6
+            1
+            4242
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_games.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_positions.jsonl"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/manifest.json"
     )
 
     add_test(
