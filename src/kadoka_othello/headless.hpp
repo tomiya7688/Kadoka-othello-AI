@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
+#include <vector>
 
 #include "kadoka_othello/ai.hpp"
 #include "kadoka_othello/state.hpp"
@@ -15,6 +16,7 @@ struct HeadlessConfig {
     std::uint64_t seed{0};
     std::size_t max_invalid_attempts_per_turn{1024};
     bool write_json_lines{true};
+    bool collect_metrics{false};
 };
 
 struct HeadlessSummary {
@@ -22,7 +24,14 @@ struct HeadlessSummary {
     std::size_t black_wins{};
     std::size_t white_wins{};
     std::size_t draws{};
+    std::size_t turns{};
+    std::size_t ai_calls{};
     std::size_t invalid_move_attempts{};
+    std::size_t turns_with_invalid_attempts{};
+    std::size_t max_invalid_attempts_in_turn{};
+    double total_ai_think_us{};
+    double max_ai_think_us{};
+    std::vector<std::size_t> invalid_attempt_histogram;
 };
 
 [[nodiscard]] HeadlessSummary run_games(
