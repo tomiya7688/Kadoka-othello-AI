@@ -130,6 +130,72 @@ Reserved in the runtime enum and configuration parser, but execution is not impl
 
 Using `runtime: "wasm"` currently fails explicitly instead of silently falling back to another runtime.
 
+## Evaluator-backed AI engine
+
+`kadoka.evaluator_ai.v1` connects a `kadoka.script_evaluator.v1` asset to the normal AI package path.
+It is a Runtime engine, not a Creator-only helper.
+
+A model selects it with:
+
+```json
+{
+  "format": "kadoka.model.v1",
+  "model_id": "my.evaluator.model",
+  "model_kind": "evaluator_ai",
+  "engine": "kadoka.evaluator_ai.v1",
+  "assets": [
+    {
+      "id": "evaluator",
+      "type": "kadoka.script_evaluator.v1",
+      "path": "evaluator.json",
+      "required": true
+    }
+  ]
+}
+```
+
+For each legal move, Runtime creates one evaluator case. The current stable feature set is:
+
+```text
+row
+col
+row_normalized
+col_normalized
+is_corner
+is_edge
+center_distance
+legal_move_count
+```
+
+All legal candidates are sent in one batch. The evaluator should return `score`; optional `policy` or `confidence` is exposed through `AIInspection`.
+The highest `score` becomes the move proposal. Runtime still applies the normal game legality check before canonical state changes.
+
+`inspect()` exposes every evaluated candidate plus diagnostics, so AI Creator and Headless use the exact same evaluator-backed engine:
+
+```text
+manifest.json
+  -> model.json
+  -> evaluator.json
+  -> EvaluatorAI
+       -> ScriptEvaluator batch
+       -> AIOutput / AIInspection
+```
+
+CMake generates a complete native-in-process sample package in the build tree:
+
+```text
+build/generated/<configuration>/evaluator_ai_manifest.json
+build/generated/<configuration>/evaluator_ai_model.json
+build/generated/<configuration>/in_process_evaluator.json
+```
+
+CTest loads that package through both:
+
+- `kadoka_othello_headless`
+- `kadoka_othello_ai_creator analyze`
+
+This verifies that the low-latency evaluator path is part of the normal Runtime package flow instead of only being reachable through the standalone probe.
+
 ## Process batch protocol
 
 `python_process` and `native_process` use the following file protocol.
@@ -166,23 +232,35 @@ The evaluator is called once per batch rather than once per candidate.
 
 `native_in_process` preserves the same logical `ScriptEvaluatorCase` / `ScriptEvaluatorResult` contract, but does not serialize it through files.
 
-## Benchmark probe
+## Benchmark
 
-The probe can execute the same evaluator repeatedly:
+The single-runtime probe can execute an evaluator repeatedly:
 
 ```text
 kadoka_script_evaluator_probe <evaluator.json> --repeat 1000 memory_bonus=2 recall_penalty=0.4
 ```
 
-It prints:
+For side-by-side comparison, the build also provides:
 
 ```text
-benchmark.repeat=1000
-benchmark.total_us=...
-benchmark.average_us=...
+kadoka_script_evaluator_benchmark \
+  <repeat> \
+  <python-config> \
+  <native-process-config> \
+  <native-in-process-config>
 ```
 
-For runtime comparisons, use identical feature input and repeat count. The first run may include process/module initialization effects, so record the comparison conditions when performance is used as evidence.
+It prints one line per runtime:
+
+```text
+runtime=python_process repeat=... total_us=... average_us=...
+runtime=native_process repeat=... total_us=... average_us=...
+runtime=native_in_process repeat=... total_us=... average_us=...
+```
+
+Linux CI runs this benchmark with identical input and emits the values into the Actions log. The benchmark is evidence, not a timing threshold: hosted-runner noise must not turn performance measurements into flaky correctness failures.
+
+The first run may include process/module initialization effects, so record the comparison conditions when performance is used as evidence.
 
 ## Runtime / Creator boundary
 
