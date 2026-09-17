@@ -203,6 +203,10 @@ std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
     }
     if (active) results.push_back(std::move(current));
 
+    // Windows does not allow deleting a file while this stream still owns an
+    // open handle. Linux permits unlinking it, so make the lifetime explicit
+    // and portable before cleaning up the temporary files.
+    input.close();
     fs::remove(input_path);
     fs::remove(output_path);
 
