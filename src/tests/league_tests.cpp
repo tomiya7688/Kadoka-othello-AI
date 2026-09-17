@@ -5,11 +5,14 @@
 
 #include "kadoka_othello/league.hpp"
 
-int main() {
+int main(int argc, char** argv) {
     using namespace kadoka::othello;
 
+    assert(argc == 2);
+    const std::string random_manifest = argv[1];
+
     LeagueParticipantConfig first_config;
-    first_config.manifest_path = "src/packages/random/manifest.json";
+    first_config.manifest_path = random_manifest;
     first_config.board_size = 6;
     first_config.seed = 1001;
     first_config.config_hash = "test-a";
