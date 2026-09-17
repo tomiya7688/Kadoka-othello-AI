@@ -32,6 +32,7 @@ add_library(kadoka_othello_runtime
     src/model_descriptor.cpp
     src/script_evaluator.cpp
     src/native_in_process_evaluator.cpp
+    src/evaluator_ai.cpp
     src/external_ai_session.cpp
     src/obake_kadoka_evaluator.cpp
     src/obake_kadoka_model.cpp
@@ -105,6 +106,15 @@ target_link_libraries(kadoka_script_evaluator_probe
         kadoka_othello_runtime
 )
 
+add_executable(kadoka_script_evaluator_benchmark
+    src/tools/script_evaluator_benchmark.cpp
+)
+
+target_link_libraries(kadoka_script_evaluator_benchmark
+    PRIVATE
+        kadoka_othello_runtime
+)
+
 # Reference implementation for runtime=native_process.
 add_executable(kadoka_native_evaluator_sample
     samples/script_evaluator/native_evaluator.cpp
@@ -122,12 +132,34 @@ target_include_directories(kadoka_in_process_evaluator_sample
 
 target_compile_features(kadoka_in_process_evaluator_sample PUBLIC cxx_std_17)
 
-# Generate a runnable evaluator config in the build tree so no platform-specific
-# DLL/SO path needs to be committed to the source tree. Include the build
-# configuration in the output path for Visual Studio and other multi-config generators.
+# Generate runnable evaluator configs in the build tree so no platform-specific
+# executable/DLL/SO path needs to be committed to the source tree. Include the
+# build configuration in the output path for Visual Studio and other multi-config generators.
+file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/python_evaluator.json"
+    CONTENT "{\n  \"format\": \"kadoka.script_evaluator.v1\",\n  \"runtime\": \"python_process\",\n  \"script\": \"${CMAKE_CURRENT_SOURCE_DIR}/samples/script_evaluator/evaluator.py\",\n  \"executable\": \"${Python3_EXECUTABLE}\"\n}\n"
+)
+
+file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/native_process_evaluator.json"
+    CONTENT "{\n  \"format\": \"kadoka.script_evaluator.v1\",\n  \"runtime\": \"native_process\",\n  \"program\": \"$<TARGET_FILE:kadoka_native_evaluator_sample>\"\n}\n"
+)
+
 file(GENERATE
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/in_process_evaluator.json"
     CONTENT "{\n  \"format\": \"kadoka.script_evaluator.v1\",\n  \"runtime\": \"native_in_process\",\n  \"library\": \"$<TARGET_FILE:kadoka_in_process_evaluator_sample>\",\n  \"symbol\": \"kadoka_script_evaluator_v1\"\n}\n"
+)
+
+# A real native package backed by the in-process evaluator. Headless and AI Creator
+# load this package through the same package/model path used by distributable AIs.
+file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_model.json"
+    CONTENT "{\n  \"format\": \"kadoka.model.v1\",\n  \"model_id\": \"kadoka.sample.evaluator_ai.model\",\n  \"model_kind\": \"evaluator_ai_demo\",\n  \"engine\": \"kadoka.evaluator_ai.v1\",\n  \"assets\": [\n    {\n      \"id\": \"evaluator\",\n      \"type\": \"kadoka.script_evaluator.v1\",\n      \"path\": \"in_process_evaluator.json\",\n      \"required\": true\n    }\n  ]\n}\n"
+)
+
+file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
+    CONTENT "{\n  \"id\": \"kadoka.sample.evaluator_ai\",\n  \"name\": \"Kadoka Evaluator AI Sample\",\n  \"version\": \"0.1.0\",\n  \"protocol_version\": 1,\n  \"board_sizes\": [6, 8, 10],\n  \"interface\": \"native\",\n  \"adapter\": \"pass_through\",\n  \"entry\": \"builtin:kadoka.evaluator_ai\",\n  \"model\": \"evaluator_ai_model.json\",\n  \"capabilities\": [\"move\", \"inspection\"]\n}\n"
 )
 
 include(CTest)
@@ -154,6 +186,35 @@ if(BUILD_TESTING)
             memory_bonus=2.0
             recall_penalty=0.4
     )
+
+    add_test(
+        NAME kadoka_script_evaluator_runtime_benchmark
+        COMMAND kadoka_script_evaluator_benchmark
+            3
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/python_evaluator.json"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/native_process_evaluator.json"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/in_process_evaluator.json"
+    )
+
+    add_test(
+        NAME kadoka_evaluator_ai_headless_smoke
+        COMMAND kadoka_othello_headless
+            1
+            8
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_headless.jsonl"
+            123
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
+    )
+
+    if(KADOKA_BUILD_AI_CREATOR)
+        add_test(
+            NAME kadoka_evaluator_ai_creator_inspect_smoke
+            COMMAND kadoka_othello_ai_creator
+                analyze
+                "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
+        )
+    endif()
 
     add_executable(kadoka_external_ai_session_helper
         src/tests/external_ai_session_helper.cpp
