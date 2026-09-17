@@ -49,6 +49,13 @@ jobs:
           build/generated/Release/native_process_evaluator.json
           build/generated/Release/in_process_evaluator.json
 
+      - name: Obake headless runtime benchmark
+        run: >-
+          ./build/kadoka_headless_benchmark 2 8
+          src/packages/obake_kadoka/manifest.json
+          src/packages/obake_maru/manifest.json
+          12345
+
       - name: Deterministic headless smoke
         run: ./build/kadoka_othello_headless 2 8 "" 12345
 
