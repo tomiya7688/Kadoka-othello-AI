@@ -65,6 +65,15 @@ target_link_libraries(kadoka_othello_headless
         kadoka_othello_runtime
 )
 
+add_executable(kadoka_headless_benchmark
+    src/tools/headless_benchmark.cpp
+)
+
+target_link_libraries(kadoka_headless_benchmark
+    PRIVATE
+        kadoka_othello_runtime
+)
+
 # AI Creator is optional by design. Runtime/headless must remain buildable when
 # Creator support is disabled so the development path cannot become a runtime dependency.
 if(KADOKA_BUILD_AI_CREATOR)
@@ -207,12 +216,59 @@ if(BUILD_TESTING)
             "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
     )
 
+    add_test(
+        NAME kadoka_obake_6x6_headless_smoke
+        COMMAND kadoka_othello_headless
+            1
+            6
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/obake_6x6.jsonl"
+            6001
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/manifest.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+    )
+
+    add_test(
+        NAME kadoka_obake_8x8_headless_smoke
+        COMMAND kadoka_othello_headless
+            1
+            8
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/obake_8x8.jsonl"
+            8001
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/manifest.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_maru/manifest.json"
+    )
+
+    add_test(
+        NAME kadoka_obake_10x10_headless_smoke
+        COMMAND kadoka_othello_headless
+            1
+            10
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/obake_10x10.jsonl"
+            10001
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_maru/manifest.json"
+    )
+
     if(KADOKA_BUILD_AI_CREATOR)
         add_test(
             NAME kadoka_evaluator_ai_creator_inspect_smoke
             COMMAND kadoka_othello_ai_creator
                 analyze
                 "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
+        )
+
+        add_test(
+            NAME kadoka_obake_kadoka_creator_inspect_smoke
+            COMMAND kadoka_othello_ai_creator
+                analyze
+                "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/manifest.json"
+        )
+
+        add_test(
+            NAME kadoka_obake_maru_creator_inspect_smoke
+            COMMAND kadoka_othello_ai_creator
+                analyze
+                "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_maru/manifest.json"
         )
     endif()
 
