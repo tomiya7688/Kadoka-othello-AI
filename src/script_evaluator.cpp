@@ -114,7 +114,14 @@ std::string ScriptEvaluator::build_command(
 
     command += " --kadoka-eval-input " + quote_arg(input_path);
     command += " --kadoka-eval-output " + quote_arg(output_path);
+#ifdef _WIN32
+    // std::system() dispatches through cmd.exe /c on Windows. When the
+    // executable itself is quoted, cmd.exe needs one additional outer quote
+    // pair so it does not consume the executable quote as command syntax.
+    return "\"" + command + "\"";
+#else
     return command;
+#endif
 }
 
 std::vector<ScriptEvaluatorResult> ScriptEvaluator::evaluate_batch(
