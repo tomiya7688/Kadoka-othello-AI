@@ -42,6 +42,13 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Script Evaluator runtime benchmark
+        run: >-
+          ./build/kadoka_script_evaluator_benchmark 20
+          build/generated/Release/python_evaluator.json
+          build/generated/Release/native_process_evaluator.json
+          build/generated/Release/in_process_evaluator.json
+
       - name: Deterministic headless smoke
         run: ./build/kadoka_othello_headless 2 8 "" 12345
 
