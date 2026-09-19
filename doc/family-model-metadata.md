@@ -75,3 +75,33 @@ metadataはidentity/provenance用で、canonical Core API stateではない。
 field名・意味論を可能な範囲で兄弟間共有するが、binary weightsやgame-specific model formatまで統一必須にはしない。
 
 Othello側へ採用したmetadata仕様の文書は日本語を正本とする。
+
+
+## training_recipe
+
+学習済みmodelは、実際に使用したDataset Recipeをoptional `training_recipe` fieldへsnapshotとして記録できる。
+
+```json
+{
+  "training_recipe": {
+    "format": "kadoka.dataset_recipe.v1",
+    "recipe_id": "eval-ml-standard-v1",
+    "model_id": "kadoka.eval_ml",
+    "usage": "training",
+    "datasets": [
+      {"dataset_id": "league-8", "ratio": 0.6},
+      {"dataset_id": "exact-endgame", "ratio": 0.4}
+    ]
+  }
+}
+```
+
+要件:
+
+- `format = kadoka.dataset_recipe.v1`
+- `usage = training`
+- `training_recipe.model_id` はroot `model_id` と一致
+- dataset ratioはfiniteかつ0より大きい
+- actual trainingで使用したRecipe snapshotを保存する
+
+Othelloの生成・埋め込みAPIは `doc/dataset-pool.md` を参照。
