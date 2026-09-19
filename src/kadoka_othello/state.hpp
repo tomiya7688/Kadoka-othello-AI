@@ -1,24 +1,19 @@
 #pragma once
 
-#include <optional>
 #include <string>
-#include <vector>
 
+#include "kadoka_othello/core_state.hpp"
 #include "kadoka_othello/game.hpp"
 
 namespace kadoka::othello {
 
-struct GameSnapshot {
-    std::size_t board_size{};
-    Player current_player{Player::Black};
-    GameStatus status{GameStatus::Playing};
-    std::vector<Cell> cells;
-    std::vector<Position> legal_moves;
-    std::vector<Move> history;
-    std::optional<GameResult> result;
-};
+// Transitional Headless/Dataset snapshot. It intentionally contains only the
+// canonical Core state. Record/event enrichment is handled separately.
+using GameSnapshot = CoreState;
 
-[[nodiscard]] GameSnapshot make_snapshot(const Game& game);
+[[nodiscard]] GameSnapshot make_snapshot(
+    const Game& game,
+    CoreTimeState time = {});
 [[nodiscard]] std::string snapshot_to_json(const GameSnapshot& snapshot);
 
 }  // namespace kadoka::othello
