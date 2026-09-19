@@ -21,7 +21,6 @@ struct AIPackageManifest {
     std::size_t protocol_version{1};
     std::vector<std::size_t> board_sizes;
     AIPackageInterface interface_type{AIPackageInterface::Native};
-    std::string adapter{"pass_through"};
     std::string entry;
     std::string model;
     std::string metadata;
