@@ -78,6 +78,9 @@
 
 ### Quality / CI
 
+- 仕様・設計・運用文書は日本語を正本とする。詳細は `doc/document-language-policy.md`。
+- README / AI_CONTEXT / AGENTS / PR template / sibling policyの日本語正本markerをRule Checker `KAD103` で確認する。
+- PR templateに日本語正本更新・Core API境界・Release testのchecklistを持つ。
 - `.clang-format` / `.clang-tidy` の基準をKadoka Shougi AIと共有しつつC++17へ合わせる。
 - Linux CI: build / CTest / fixed-seed Headless smoke / Creator-disabled Runtime-only validation。
 - Windows CI: `build.bat` / fixed-seed Headless smoke / developer artifact upload。
