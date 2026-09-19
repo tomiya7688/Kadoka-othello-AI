@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <string>
 
-#include "kadoka_othello/rules.hpp"
 
 namespace kadoka::othello {
 namespace {
@@ -67,8 +66,7 @@ std::vector<std::string> load_position_list(const std::string& path) {
 AICreatorRunResult run_creator_inference(
     LoadedAIPackage& package,
     const CreatorPosition& position) {
-    const auto legal_moves = rules::legal_moves(position.board, position.player);
-    const AIInput input{&position.board, &legal_moves};
+    const AIInput input{&position.board, position.player, {}};
     const auto start = std::chrono::steady_clock::now();
     AIInspection inspection = inspect_ai(package.view(), input);
     const auto end = std::chrono::steady_clock::now();
@@ -81,8 +79,7 @@ AIBenchmarkResult benchmark_creator_ai(
     const CreatorPosition& position,
     std::size_t iterations) {
     if (iterations == 0) throw std::invalid_argument("benchmark iterations must be greater than zero");
-    const auto legal_moves = rules::legal_moves(position.board, position.player);
-    const AIInput input{&position.board, &legal_moves};
+    const AIInput input{&position.board, position.player, {}};
     double total = 0.0;
     double minimum = std::numeric_limits<double>::max();
     double maximum = 0.0;
