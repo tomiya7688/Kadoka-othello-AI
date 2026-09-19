@@ -2,65 +2,63 @@
 
 ## Purpose
 
-All AI implementations use the same logical input and output contract.
-The game core does not depend on AI implementation details.
+Every AI receives the same semantic state and returns a proposed move. Game Core remains authoritative.
 
 ## Input
 
-Every AI request is created from:
+`AIInput` is the native typed view of `kadoka.core_state.v1`.
+
+It contains:
 
 - current board
-- legal move list
+- side to move
+- time information
 
-The runtime representation is `AIInput`.
-The board and legal move list are passed by reference/pointer so the normal native path does not copy them.
+It does not contain a legal-move list.
+
+Native engines receive a zero-copy board reference. An engine that needs legal moves derives them internally from board + side to move.
+
+Examples:
+
+- Random AI derives the legal set and samples it.
+- Evaluator AI derives legal candidates, builds evaluator features, then scores them.
+- Obake Kadoka / Maru intentionally inspect empty squares without knowing legality.
 
 ## Output
 
-Every AI returns one move through `AIOutput`.
+`AIOutput` contains one proposed board position.
 
-The game core is always the authority for legality. An AI output is never trusted as legal merely because a legal move list was supplied.
-
-## Adapter layer
-
-Adapters transform protocol input before it reaches an AI implementation.
-
-### PassThroughAdapter
-
-Passes both board and legal moves to the AI.
-This is the default adapter for normal AI implementations.
-
-### DropLegalMovesAdapter
-
-Passes the board but removes the legal move list.
-This is intended for AI implementations such as Obake Kadoka and Obake Maru that do not know legal moves.
-
-The AI implementation itself therefore does not need special code to discard legal moves.
+The proposal is passed to `Game::play()`. A move is not trusted simply because it came from a native or packaged AI.
 
 ## Invalid moves
 
-The game core remains responsible for validating the returned move.
-The headless runner retries the same turn when an AI returns an invalid move.
-Only successful legal moves are added to normal game history and dataset snapshots.
+If a proposal is illegal:
 
-`HeadlessConfig::max_invalid_attempts_per_turn` prevents an AI from creating an infinite retry loop.
+- board does not change
+- side to move does not change
+- ply does not change
+- `GameEventType::InvalidMove` is emitted
 
-GUI implementations may separately visualize invalid attempts, character reactions, warnings, or other presentation effects.
+Headless retries the same state up to `HeadlessConfig::max_invalid_attempts_per_turn`.
 
-## AI package runtime
+Character/UI behavior and logging can subscribe to the event without being part of Core legality logic.
 
-`AIPackage` currently binds:
+## Package runtime
 
-- an `IAIEngine`
-- an `IAIAdapter`
+`AIPackage` binds an `IAIEngine`.
 
-The runner only knows this pair and does not need to know whether the AI is built in, loaded from a library, proxied to another process, or connected through another adapter.
+The old `PassThroughAdapter` / `DropLegalMovesAdapter` layer was removed because legal moves are no longer a Core input field.
 
-Future loaders can therefore support native libraries, executables, Python, network services, or legacy AI without changing the game core protocol.
+Package manifests may still contain an old `adapter` key from historical packages; it is ignored as an unknown compatibility field and new manifests do not emit it.
+
+## External/script transport
+
+External and script backends receive canonical JSON state. Transport framing, process lifetime and timeout policy are Runtime concerns and do not change Core semantics.
 
 ## Performance rule
 
-Fast native AIs should remain on the zero-copy native path where possible.
-Expensive serialization such as JSON should be treated as an adapter/transport concern, not as the internal core interface.
+JSON is the API source of truth, not a requirement to serialize on the native hot path.
 
-This allows optimized AI implementations to use bitboards, SIMD, lookup tables, fixed-size buffers, multithreading, or other implementation-specific techniques without changing the protocol.
+Native engines use `CoreStateView`; external transports serialize it with `core_state_to_json()`.
+
+Optimized engines may derive bitboards, fixed buffers, SIMD layouts or tensors internally. Those representations must remain semantically equivalent to the canonical state and must not become alternate public Core APIs.
