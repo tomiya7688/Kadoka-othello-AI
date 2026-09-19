@@ -1,104 +1,114 @@
-# Current State
+# 現在実装
 
-This file is a compact index of what is implemented now. It is not a replacement for source files or detailed specifications.
+この文書は現在の実装状態を短く確認するための索引。sourceや詳細仕様の代替ではない。
 
-## Implemented
+## 実装済み
 
 ### Othello Core / Runtime
 
-- Variable-size board implementation supporting 6x6 / 8x8 / 10x10.
-- Rules, legal move generation, game state and headless execution.
-- Canonical `kadoka.core_state.v1` Core API: board + side to move + time only.
-- Native AI hot path uses the semantically equivalent zero-copy `CoreStateView`; legal moves are not an AI/Core input field.
-- Game emits explicit `MoveAccepted` / `InvalidMove` / `Pass` / `Terminal` events; illegal moves preserve board, side and ply.
-- AI package manifest loading.
-- Runtime and Creator Support are separate CMake targets.
-- `KADOKA_BUILD_AI_CREATOR=OFF` provides a Runtime-only CMake configuration; Headless/core tests build without Creator Support.
-- Headless execution links Runtime only.
-- Canonical state changes remain owned by `Game` / rules; AI output is non-authoritative until applied successfully.
+- 6x6 / 8x8 / 10x10を同じ可変盤面実装で扱う。
+- rules、合法手生成、game state、pass、終局判定、Headless実行。
+- canonical Core API `kadoka.core_state.v1` は board + side-to-move + time のみ。
+- native hot pathは同じ意味論のzero-copy `CoreStateView` を使う。legal move listはCore/AI入力fieldではない。
+- `Game` は `MoveAccepted` / `InvalidMove` / `Pass` / `Terminal` eventを発行する。
+- 違法手ではboard / side / plyを変更しない。
+- AI package manifest loading。
+- RuntimeとCreator Supportは別CMake target。
+- `KADOKA_BUILD_AI_CREATOR=OFF` でCreator非依存のRuntime-only build/testが可能。
+- HeadlessはRuntimeのみをlinkする。
+- AI outputはproposalであり、`Game` / rulesがcanonical state transitionを所有する。
+
+### Game Record v1
+
+- `kadoka.board_state` v1 JSONL。
+- `kadoka.game_aux` v1 JSONL。
+- ULID `game_id`、`ply`、`event_index`。
+- initial / accepted move / pass / illegal / invalid notification / terminalを記録可能。
+- BoardStateとGameAuxは `game_id + ply` でjoin可能。
+- writer、single-game reader、multi-game readerを実装。
+- Headlessから2ストリームを出力可能。
+- 6x6 / 8x8 / 10x10、pass、illegal、terminal、unknown optional fieldをCTestで検証。
 
 ### Model / Package
 
-- `manifest.json` describes the AI package.
-- `model.json` is a root model descriptor and can reference multiple assets.
-- Model assets can represent evaluator, behavior, network/search/opening data or other model-owned resources.
-- `ModelRootDescriptor` / `ModelAssetDescriptor` resolve model assets.
+- `manifest.json` がAI packageを記述する。
+- `model.json` はroot model descriptorで、複数assetを参照可能。
+- assetはevaluator、behavior、network/search/opening data等を表現可能。
+- `ModelRootDescriptor` / `ModelAssetDescriptor` がassetを解決する。
 
 ### Script Evaluator
 
-- `kadoka.script_evaluator.v1` is a Runtime feature.
-- `python_process` runtime is implemented.
-- `native_process` runtime is implemented.
-- `native_in_process` runtime is implemented as a stable C ABI DLL/SO path.
-- Native in-process output is returned through host-owned callbacks, so C++ containers do not cross the module ABI boundary.
-- Batch input is used for all runtimes.
-- `wasm` is reserved but not yet executable.
-- CMake builds a native in-process sample module and generates a runnable evaluator config in the build tree.
-- CTest includes a native in-process evaluator smoke test.
-- The evaluator probe supports repeated calls for simple runtime-latency comparison.
+- `kadoka.script_evaluator.v1` はRuntime機能。
+- `python_process` 実装済み。
+- `native_process` 実装済み。
+- `native_in_process` はstable C ABIのDLL/SO pathとして実装済み。
+- native in-processのoutputはhost-owned callbackで返し、C++ containerをmodule ABI越しに渡さない。
+- 全runtimeでbatch inputを使用する。
+- `wasm` は予約済みだが未実装。
+- CMakeでnative in-process sample moduleとrunnable configを生成する。
+- CTestにnative in-process smokeがある。
+- evaluator probeはrepeat実行に対応する。
 
-### Character AIs
+### Character AI
 
 #### Obake Kadoka
 
-- Does not receive legal moves from Core; it intentionally evaluates empty squares.
-- Uses Kadoka-specific local board features rather than normal Othello strategy.
-- Uses weighted randomness.
-- Keeps short attempt memory including inferred rejected moves.
-- Evaluator and behavior parameters are model assets and are intended to be tunable.
+- Coreからlegal movesを受け取らず、空きマスを自分で評価する。
+- 通常のオセロ戦略ではなくKadoka固有のlocal board featureを使う。
+- weighted randomnessを使う。
+- 推定されたrejectを含む短期attempt memoryを持つ。
+- evaluator / behavior parameterはmodel assetで調整可能。
 
 #### Obake Maru
 
-- Does not receive legal moves from Core; it intentionally evaluates empty squares.
-- Uses a much weaker local-interest evaluator and high randomness.
-- Remembers only the immediately previous rejected attempt.
+- Coreからlegal movesを受け取らず、空きマスを自分で評価する。
+- Kadokaより弱いlocal-interest evaluator + 高randomness。
+- 直前のrejectだけ覚える。
 
 ### AI Creator / Tooling
 
-- Analyze, batch analyze, compare and benchmark paths exist.
-- Package import and data/model conversion support exist.
-- Root `AI_CONTEXT.md` is the compact AI-assisted-development entrypoint.
-- `doc/context-routing.md` maps task categories to source/tests/docs/validation.
-- `tools/context_route.py` prints one route without loading unrelated documentation.
-- `tools/next_issue.py` creates a compact Goal / Required / Acceptance task capsule and routes it to the relevant subsystem.
-- `tools/kadoka_rule_checker/` checks mechanically verifiable project rules.
-- Rule checker is invoked from the normal CMake build before Runtime compilation.
+- analyze / batch analyze / compare / benchmark。
+- package import、data/model conversion。
+- `AI_CONTEXT.md` がAI支援開発のcompact entrypoint。
+- `doc/context-routing.md` がtask categoryからsource/tests/docs/validationへrouteする。
+- `tools/context_route.py` が必要routeだけ表示する。
+- `tools/next_issue.py` がGoal / Required / Acceptanceを絞ったtask capsuleを生成する。
+- `tools/kadoka_rule_checker/` が機械的に判定できるproject ruleを検査する。
+- checkerは通常CMake buildでRuntime compile前に実行される。
 
 ### Quality / CI
 
-- `.clang-format` / `.clang-tidy` baseline is aligned with Kadoka Shougi AI, using this project's C++17 level.
-- Linux GitHub Actions builds, runs CTest, executes a fixed-seed headless smoke, and separately verifies a Creator-disabled Runtime-only configuration.
-- Windows GitHub Actions runs `build.bat`, executes the same bounded headless smoke and uploads developer build artifacts.
-- The 2026-09-16 Linux and Windows workflows both passed after CI exposed and we fixed an AI Creator format-listing compile mismatch.
-- Sibling-project cross-adoption policy is documented in `doc/sibling-project-alignment.md`.
+- `.clang-format` / `.clang-tidy` の基準をKadoka Shougi AIと共有しつつC++17へ合わせる。
+- Linux CI: build / CTest / fixed-seed Headless smoke / Creator-disabled Runtime-only validation。
+- Windows CI: `build.bat` / fixed-seed Headless smoke / developer artifact upload。
+- Release buildでは `assert(expr)` の式自体が消えるため、testは常時評価される `KADOKA_REQUIRE` を使用する。
+- sibling cross-adoptionは `doc/sibling-project-alignment.md` に記録する。
 
-## Open / Pending Work
+## Open / Pending
 
-- Game Record v1 (#18): split BoardState JSONL and GameAux JSONL with ULID/game_id + ply/event_index.
+- production character AIが `native_in_process` Script Evaluator assetを実際に必要とする構成への接続。
+- `python_process` / `native_process` / `native_in_process` の同一入力比較performance measurement。
+- WASM Script Evaluator runtime。
+- Windows developer artifactを正式distributionと呼ぶ前のportable distribution境界定義。
+- false positiveが少ない範囲でのrule checker追加。
+- Issueで計画されているその他AI family / Dataset / relabel / training基盤。
 
-- Connect a production AI model that actually consumes `native_in_process` Script Evaluator assets during Headless/Creator inference; the Runtime evaluator path and smoke module exist, but no current character AI requires this asset yet.
-- Complete comparative performance measurements for `python_process` / `native_process` / `native_in_process` under identical inputs.
-- WASM Script Evaluator runtime.
-- Define a real portable distribution boundary before calling Windows developer artifacts a release/distribution package.
-- Additional rule-checker coverage where rules can be verified without noisy false positives.
-- Broader AI families planned in project Issues/specs are not implied to be implemented by this summary.
+## Performance-sensitive boundary
 
-## Performance-sensitive Boundaries
+通常pathへ不要なallocation、serialization、process launch、rich diagnosticsを追加しない。
 
-The following areas should not gain unnecessary allocations, serialization, process launches or rich diagnostics on the normal path:
-
-- `think()` inference path
+- `think()`
 - move generation
 - board evaluation
-- search / Monte Carlo loops
-- headless self-play
+- search / Monte Carlo loop
+- Headless self-play
 - dataset-generation execution loop
 
-Creator-only analysis and conversion must stay outside those hot paths.
+Creator-onlyの解析・変換はこれらhot pathの外に置く。
 
-## Validation Baseline
+## Validation baseline
 
-For broad/shared changes:
+広い/shared change:
 
 ```text
 python tools/kadoka_rule_checker/script/kadoka_rule_checker.py .
@@ -107,4 +117,4 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-For focused changes, use `doc/context-routing.md` to run targeted evidence first, then broaden only when the changed contract is shared/public or impact is uncertain.
+局所変更では `doc/context-routing.md` のtargeted evidenceを先に実行し、public/shared contract変更または影響不明時だけ広げる。
