@@ -1,6 +1,9 @@
 #include "kadoka_othello/headless.hpp"
 
+#include "kadoka_othello/game_record.hpp"
+
 #include <chrono>
+#include <memory>
 #include <ostream>
 #include <stdexcept>
 
@@ -62,7 +65,9 @@ HeadlessSummary run_games(
     const HeadlessConfig& config,
     AIPackage black,
     AIPackage white,
-    std::ostream* dataset_output) {
+    std::ostream* dataset_output,
+    std::ostream* board_state_output,
+    std::ostream* game_aux_output) {
     if (config.games == 0) {
         return {};
     }
@@ -74,17 +79,26 @@ HeadlessSummary run_games(
     if (config.max_invalid_attempts_per_turn == 0) {
         throw std::invalid_argument("max_invalid_attempts_per_turn must be greater than zero");
     }
+    if ((board_state_output == nullptr) != (game_aux_output == nullptr)) {
+        throw std::invalid_argument(
+            "Headless Game Record requires both BoardState and GameAux outputs");
+    }
 
     HeadlessSummary summary;
     summary.games = config.games;
 
     for (std::size_t game_index = 0; game_index < config.games; ++game_index) {
         Game game(config.board_size);
-        game.add_event_listener([&summary](const GameEvent& event) {
+        static_cast<void>(game.add_event_listener([&summary](const GameEvent& event) {
             if (event.type == GameEventType::InvalidMove) {
                 ++summary.invalid_move_attempts;
             }
-        });
+        }));
+
+        std::unique_ptr<GameRecordRecorder> recorder;
+        if (board_state_output != nullptr) {
+            recorder = std::make_unique<GameRecordRecorder>(game);
+        }
 
         while (game.status() == GameStatus::Playing) {
             if (game.can_pass()) {
@@ -128,6 +142,13 @@ HeadlessSummary run_games(
             }
         }
 
+        if (recorder) {
+            write_game_record_jsonl(
+                recorder->record(),
+                *board_state_output,
+                *game_aux_output);
+        }
+
         const auto result = game.result();
         if (!result) {
             throw std::runtime_error("finished headless game has no result");
@@ -147,14 +168,18 @@ HeadlessSummary run_games(
 
 HeadlessSummary run_random_games(
     const HeadlessConfig& config,
-    std::ostream* dataset_output) {
+    std::ostream* dataset_output,
+    std::ostream* board_state_output,
+    std::ostream* game_aux_output) {
     RandomAI black_ai(config.seed == 0 ? 0 : config.seed);
     RandomAI white_ai(config.seed == 0 ? 0 : config.seed + 1);
     return run_games(
         config,
         AIPackage{&black_ai},
         AIPackage{&white_ai},
-        dataset_output);
+        dataset_output,
+        board_state_output,
+        game_aux_output);
 }
 
 }  // namespace kadoka::othello
