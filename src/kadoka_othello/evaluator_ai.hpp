@@ -13,8 +13,8 @@ public:
     EvaluatorAI(std::string package_id, const ModelRootDescriptor& model);
 
     [[nodiscard]] std::string id() const override;
-    [[nodiscard]] AIOutput think(const AdaptedAIInput& input) override;
-    [[nodiscard]] AIInspection inspect(const AdaptedAIInput& input) override;
+    [[nodiscard]] AIOutput think(const AIInput& input) override;
+    [[nodiscard]] AIInspection inspect(const AIInput& input) override;
 
 private:
     std::string package_id_;
