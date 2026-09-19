@@ -1,8 +1,8 @@
 # Kadoka Model Format
 
-`model.json` is a root descriptor, not the whole model.
+`model.json` はmodel全体そのものではなくroot descriptor。
 
-Standard package shape:
+標準package:
 
 ```text
 package/
@@ -13,12 +13,12 @@ package/
   other assets...
 ```
 
-`manifest.json` describes package loading and protocol details.
-`model.json` lists the assets that form one model instance.
+- `manifest.json`: package loading / protocol情報
+- `model.json`: 1 model instanceを構成するasset一覧
 
 Root format: `kadoka.model.v1`
 
-Example:
+例:
 
 ```json
 {
@@ -33,13 +33,18 @@ Example:
 }
 ```
 
-Each asset has a stable `id`, a versioned `type`, a relative `path`, and a `required` flag.
+各asset:
 
-Assets are not limited to JSON. A complex AI may reference evaluator parameters, neural-network files, opening books, search settings, endgame tables, calibration data, learned trees, executable evaluator modules, or other binary/model assets.
+- stable `id`
+- versioned `type`
+- relative `path`
+- `required`
 
-## Script evaluator asset
+assetはJSON限定ではない。evaluator parameter、NN、opening book、search setting、endgame table、calibration data、learned tree、executable evaluator module等を参照できる。
 
-A model can own executable evaluation logic through a `kadoka.script_evaluator.v1` asset:
+## Script Evaluator asset
+
+modelは `kadoka.script_evaluator.v1` でexecutable evaluation logicを所有できる。
 
 ```json
 {
@@ -50,9 +55,7 @@ A model can own executable evaluation logic through a `kadoka.script_evaluator.v
 }
 ```
 
-`evaluator.json` selects the runtime independently from the model root.
-
-Examples:
+`evaluator.json` がroot modelと独立にruntimeを選ぶ。
 
 ```json
 {"format":"kadoka.script_evaluator.v1","runtime":"python_process","script":"evaluator.py"}
@@ -71,11 +74,13 @@ Examples:
 }
 ```
 
-The logical `features batch -> values/diagnostics` contract remains the same across runtimes. See `doc/script-evaluator-runtime.md` for the process protocol and native in-process ABI.
+全runtimeでlogical `features batch -> values/diagnostics` contractは同じ。
+
+process protocol / native in-process ABIは `doc/script-evaluator-runtime.md`。
 
 ## Evaluator AI engine
 
-A package that wants the Script Evaluator itself to score legal moves can use:
+Script Evaluatorでlegal candidateをscoreするpackageは次を使える。
 
 ```json
 {
@@ -94,13 +99,15 @@ A package that wants the Script Evaluator itself to score legal moves can use:
 }
 ```
 
-The package remains `interface: "native"`: the C++ Runtime engine owns candidate generation/batching and the evaluator asset owns candidate scoring. Changing `evaluator.json` from `python_process` to `native_process` or `native_in_process` does not change the game-facing AI protocol.
+packageは `interface: "native"` のまま。
 
-This is the preferred composition when evaluator code is model data/logic but move validation and package execution must remain inside the authoritative C++ Runtime.
+C++ Runtime engineがcanonical stateからlegal candidateを生成・batch化し、evaluator assetがscoreする。
 
-## Complex model layout
+`python_process` / `native_process` / `native_in_process` を切り替えてもgame-facing AI protocolは変えない。
 
-Example:
+move validationとpackage executionはauthoritative C++ Runtime/Game側に残す。
+
+## Complex model
 
 ```text
 hybrid_ai/
@@ -114,10 +121,13 @@ hybrid_ai/
   endgame.bin
 ```
 
-The game still sees only the common AI protocol. The model engine loads whichever assets it understands.
+Gameはcommon AI protocolだけを見る。model engineが理解するassetをloadする。
 
-Obake Kadoka and Obake Maru are reference models using the same root format. Their evaluator and behavior/randomizer settings are separate so tuning can change weights without changing engine code.
+Obake Kadoka / Maruも同じroot formatを使うreference model。
 
-Version `format` and asset `type` independently. Unknown optional assets may be ignored; unknown required assets should fail loading.
+`format` とasset `type` は独立versioningする。
 
-Native in-process evaluator modules contain executable code and therefore belong to the package trust boundary. A package should not silently elevate an untrusted model asset into an in-process native module.
+- unknown optional asset: ignore可能
+- unknown required asset: load failure
+
+native in-process moduleは実行codeなのでpackage trust boundaryに含まれる。untrusted model assetを暗黙にin-process native codeへ昇格させない。
