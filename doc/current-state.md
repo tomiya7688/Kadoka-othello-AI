@@ -65,6 +65,20 @@
 - Kadokaより弱いlocal-interest evaluator + 高randomness。
 - 直前のrejectだけ覚える。
 
+### Dataset Pool / Recipe
+
+- `kadoka.dataset_entry.v1` Dataset Registry JSONL。
+- provenance: source type / board size / generator/opponent model version / parent / search config / relabel history / created_at / license / game IDs。
+- 6x6 / 8x8 / 10x10を明示区別。
+- `training` / `validation` / `benchmark` / `league_evaluation` usage分離。
+- `derive_dataset()` でparent game subsetからvirtual derived Datasetを作成可能。
+- parent存在 / board size / game subset / cycleをRegistry validation。
+- `kadoka.dataset_recipe.v1` でmodelごとのDataset比率を設定可能。
+- Recipe resolve時に複数Dataset間の同一 `game_id` を重複排除。
+- `training_recipe` を `kadoka.ai_metadata.v1` へ埋め込み可能。
+- `kadoka_dataset_tool` でvalidate / plan / attach-recipe。
+- Dataset PoolはCreator Support側にありRuntime-only buildへ依存しない。
+
 ### AI Creator / Tooling
 
 - analyze / batch analyze / compare / benchmark。
