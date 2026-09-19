@@ -1,5 +1,6 @@
 #include "kadoka_othello/game.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace kadoka::othello {
@@ -130,8 +131,21 @@ void Game::reset() {
     update_finished_state();
 }
 
-void Game::add_event_listener(GameEventListener listener) {
-    listeners_.push_back(std::move(listener));
+GameEventListenerId Game::add_event_listener(GameEventListener listener) {
+    const GameEventListenerId id = next_listener_id_++;
+    listeners_.push_back(ListenerEntry{id, std::move(listener)});
+    return id;
+}
+
+void Game::remove_event_listener(GameEventListenerId listener_id) noexcept {
+    listeners_.erase(
+        std::remove_if(
+            listeners_.begin(),
+            listeners_.end(),
+            [listener_id](const ListenerEntry& entry) {
+                return entry.id == listener_id;
+            }),
+        listeners_.end());
 }
 
 void Game::advance_turn() {
@@ -152,8 +166,8 @@ void Game::update_finished_state() {
 }
 
 void Game::emit_event(const GameEvent& event) const {
-    for (const auto& listener : listeners_) {
-        listener(event);
+    for (const auto& entry : listeners_) {
+        entry.listener(event);
     }
 }
 
