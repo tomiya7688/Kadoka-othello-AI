@@ -84,28 +84,17 @@ This avoids writing a shutdown command to a pipe after a crashed child has alrea
 
 ## Request protocol
 
-Each request has a monotonically increasing ID.
+Each request has a monotonically increasing ID. The transport frame is line-oriented, but the state payload is the canonical Core JSON object.
 
 ```text
 request 1
-size 8
-row ........
-row ........
-row ...WB...
-row ...BW...
-row ........
-row ........
-row ........
-row ........
-legal_count 4
-legal 2 3
-legal 3 2
-legal 4 5
-legal 5 4
+state {"format":"kadoka.core_state.v1","board_size":8,"cells":[...],"side_to_move":"black","time":{"black_remaining_ms":null,"white_remaining_ms":null,"move_limit_ms":null}}
 end
 ```
 
-When an adapter removes legal moves, `legal_count` is zero and no `legal` records follow.
+No legal-move list is sent. An external AI that needs legal moves derives them from the board and side to move.
+
+The same `kadoka.core_state.v1` object is used for 6x6, 8x8 and 10x10.
 
 ## Response protocol
 
@@ -144,7 +133,7 @@ The runtime reports an error when:
 
 On POSIX, writes to a child that has already closed stdin are converted to normal `EPIPE` errors instead of allowing `SIGPIPE` to terminate the game process.
 
-The external AI does not own the canonical board. Its move remains a proposal and the game core performs legality/state-transition validation.
+The external AI does not own the canonical board. Its move remains a proposal and the game core performs legality/state-transition validation. Illegal proposals leave board/turn/ply unchanged and emit an invalid-move event.
 
 ## Performance boundary
 
