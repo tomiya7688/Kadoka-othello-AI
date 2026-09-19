@@ -5,7 +5,6 @@
   "protocol_version": 1,
   "board_sizes": [6, 8, 10],
   "interface": "native",
-  "adapter": "drop_legal_moves",
   "entry": "builtin:kadoka.obake_maru",
   "model": "model.json",
   "metadata": "metadata.json",
