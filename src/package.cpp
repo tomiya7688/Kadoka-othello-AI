@@ -105,7 +105,6 @@ AIPackageManifest load_ai_manifest(const std::string& path) {
     manifest.protocol_version = find_number(json, "protocol_version", 1);
     manifest.board_sizes = find_number_array(json, "board_sizes");
     manifest.interface_type = parse_interface(find_string(json, "interface", "native"));
-    manifest.adapter = find_string(json, "adapter", "pass_through");
     manifest.entry = find_string(json, "entry");
     manifest.model = find_string(json, "model");
     manifest.metadata = find_string(json, "metadata");
