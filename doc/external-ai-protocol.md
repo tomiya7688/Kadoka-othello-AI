@@ -16,57 +16,38 @@ kadoka_othello_ai_creator.exe import external_process my_ai.exe packages\my_ai m
 
 The source file is copied into the package directory and a `manifest.json` is generated.
 
-## Runtime invocation
+## Canonical request semantics
 
-Imported external AIs are invoked with:
+External AI transports carry the same canonical state as the Core API:
 
-```text
-<entry> --kadoka-input <request-file> --kadoka-output <response-file>
-```
+- board information
+- side to move
+- time information
 
-Python packages are invoked through `python <entry> ...`.
+JSON is the canonical interchange representation.
 
-## Request format
+A transport may frame that JSON for stdin/stdout, files, IPC or network use, but it must not change the meaning of the payload.
 
-```text
-KADOKA_AI_PROTOCOL 1
-size 8
-........
-........
-........
-...WB...
-...BW...
-........
-........
-........
-legal_count 4
-2 3
-3 2
-4 5
-5 4
-```
+Legal moves are not part of the canonical request. External AIs that need them derive them from the board state.
 
-If the package uses `drop_legal_moves`, `legal_count` is 0 and the list is omitted.
+## Response
 
-## Response format
+The required response is a proposed move.
 
-Minimum response:
+Optional development output may include candidate values or diagnostics, but these belong to Runtime/Creator inspection and are not authoritative game state.
 
-```text
-move 2 3
-```
+The game runtime consumes the move proposal and submits it to the Core.
 
-Optional development output:
+## Invalid moves
 
-```text
-candidate 2 3 0.42 0.70
-candidate 3 2 0.38 0.30
-diag nodes=12000
-diag depth=7
-```
+The Core validates every proposed move.
 
-The game runtime consumes only `move`. AI Creator can consume `candidate` and `diag` records.
+If a move is illegal, the canonical state remains unchanged and the Core emits an invalid-move event. The transport/session layer may then request another move for the same unchanged state according to its retry policy.
 
 ## Performance note
 
-The external-process protocol starts a process and uses temporary files, so it is intended for compatibility, prototyping and model development. High-speed engines should use the future dynamic-library/native interface so board and legal-move data can be passed without serialization or process startup overhead.
+External-process transport is intended for compatibility, prototyping and model development.
+
+High-speed engines should prefer persistent or in-process/native execution. A native fast path may use a typed view after the canonical JSON boundary has been decoded, but the public/Core interchange contract remains JSON.
+
+Binary or compressed training formats belong to AI Creator / Dataset Tooling, not to this Core protocol.
