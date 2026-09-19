@@ -88,6 +88,19 @@ model root descriptor、package manifest、asset resolution、compatibility。
 - Docs: `doc/obake-maru.md`
 - Invariant: MaruはKadokaより弱く、記憶は極端に短く保つ。
 
+### dataset-pool
+
+Dataset Registry / Recipe / provenance / derived Dataset / training metadata。
+
+- Source: `src/dataset_pool.cpp`, `src/kadoka_othello/dataset_pool.hpp`
+- Tool: `src/tools/dataset_tool_main.cpp`
+- Samples: `samples/dataset_pool/`
+- Tests: `src/tests/dataset_pool_tests.cpp`
+- Docs: `doc/dataset-pool.md`, `doc/data-format.md`, `doc/family-model-metadata.md`
+- Validation: Dataset Pool test -> Dataset Tool validate/plan -> attached metadata validator
+- Boundary: Creator Supportのみ。Runtime hot pathへDataset Registry/Recipeを依存させない。
+- Invariant: training/validation/benchmark/league_evaluation usageを混在させない。Recipe resolve時にgame_idをdedupする。
+
 ### data-conversion
 
 JSONL/model record、dataset conversion、format mapping。
