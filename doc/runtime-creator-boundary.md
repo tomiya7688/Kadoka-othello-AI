@@ -95,7 +95,6 @@ Shared concepts include:
 - `ModelRootDescriptor`
 - `ModelAssetDescriptor`
 - `IAIEngine`
-- `IAIAdapter`
 - `AIInput`
 - `AIOutput`
 - optional `AIInspection`
@@ -106,13 +105,16 @@ The game contract remains:
 ```text
 input:
   board
-  legal moves
+  side to move
+  time
 
 output:
-  selected move
+  selected move proposal
 ```
 
-Adapters may remove information before the model receives it. For example Obake Kadoka and Obake Maru use `drop_legal_moves`.
+The public semantic source of truth is `kadoka.core_state.v1` JSON. Native Runtime uses the equivalent `CoreStateView` directly so JSON serialization is not added to every inference.
+
+Legal moves are derived by engines/tooling that need them. They are not a Core input field.
 
 ## Hot path rule
 
@@ -121,7 +123,6 @@ Normal game execution should use `think()`.
 ```text
 Game
   -> Runtime package
-  -> adapter
   -> model engine
   -> think()
   -> move
@@ -132,7 +133,6 @@ Development tools may use `inspect()`.
 ```text
 AI Creator
   -> Runtime package
-  -> adapter
   -> model engine
   -> inspect()
   -> move + candidates + diagnostics
