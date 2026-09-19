@@ -1,70 +1,64 @@
 # Coding Rules
 
-This project adopts the applicable parts of `tomiya7688/upd-commander-base-design` as coding rules.
+`tomiya7688/upd-commander-base-design` の適用可能な原則をKadoka Othello AI向けに採用する。
 
-The purpose is to keep the Othello runtime, AI runtime, AI Creator and model tooling easy to maintain without creating avoidable performance bottlenecks.
+目的はmaintainabilityを保ちつつ、Runtime hot pathへ不要なperformance bottleneckを入れないこと。
 
-## 1. One file, one responsibility
+## 1. 1 file 1 responsibility
 
-A source/header pair should represent one main responsibility.
+source/header pairは原則1つの主責務を持つ。
 
-Examples:
+例:
 
-- `obake_kadoka_evaluator.*` -> Kadoka evaluator only
-- `obake_kadoka_model.*` -> Kadoka model loading only
-- `script_evaluator.*` -> script evaluator runtime only
-- `package_loader.*` -> package/runtime loading only
+- `obake_kadoka_evaluator.*`: evaluator
+- `obake_kadoka_model.*`: model loading
+- `script_evaluator.*`: Script Evaluator runtime
+- `package_loader.*`: package/runtime loading
 
-Do not mix Creator-only analysis/conversion logic into Runtime files.
+Creator-only analysis/conversionをRuntime fileへ混ぜない。
 
-Small helper types, enums and private helpers may remain with the responsibility they support.
+小さいhelper type/private helperは支える責務と同居してよい。
 
-## 2. One module, one responsibility
+## 2. 1 module 1 responsibility
 
-C++ modules may be classes, namespaces or free-function groups. OOP is not required.
+moduleはclass/namespace/free-function groupいずれでもよい。OOP必須ではない。
 
-Prefer responsibility boundaries over class boundaries.
+class境界より責務境界を優先する。
 
-## 3. One function, one action
+## 3. 1 function 1 coherent action
 
-A function should normally perform one coherent action.
+parsing / validation / evaluation / persistence / presentation等、無関係な処理は分ける。
 
-Split unrelated steps such as parsing, validation, evaluation, persistence and presentation.
+ただしhot pathを細分化しすぎてcall/abstraction overheadを作らない。
 
-Do not over-split tiny operations when the extra calls or abstractions would make a measured hot path slower or harder to optimize.
+## 4. Commentは意図を書く
 
-## 4. Comments describe intent
+processing block、invariant、非自明optimization、boundary ruleの理由を書く。
 
-Use comments to explain the purpose of a processing block, invariant, non-obvious optimization or boundary rule.
+次行のsyntaxを言い換えるだけのcommentは避ける。
 
-Avoid comments that only restate the next line of code.
+非自明なperformance exceptionは理由を残す。
 
-Performance exceptions must explain why the less-structured form is necessary when that reason is not obvious from the code.
+## 5. Closed processing module
 
-## 5. Closed processing modules
-
-Processing modules should normally be called by their owning coordinator/runner and return results to it instead of calling peer processing modules directly.
-
-In this project the equivalent principle is:
+processing moduleはowner/coordinatorから呼ばれ、resultを返す形を基本とする。
 
 ```text
 Game / Headless / AI Runtime coordinator
   -> processing module
-  -> return result
+  -> result
 ```
 
-Avoid hidden horizontal call chains between independent AI/runtime processing modules.
+独立processing module間のhidden horizontal call chainを避ける。
 
-Allowed internal calls include:
+許可:
 
-- private helpers belonging to the same responsibility
-- pure functions
-- data/value types
-- explicitly shared utility code
+- 同一責務private helper
+- pure function
+- data/value type
+- 明示shared utility
 
 ## 6. Dependency direction
-
-The current high-level dependency direction is:
 
 ```text
 AI Creator
@@ -73,93 +67,98 @@ AI Creator
     -> Othello Core
 ```
 
-The reverse direction is forbidden.
+逆方向は禁止。
 
-In particular:
+- RuntimeからCreator Supportをinclude/linkしない。
+- Headless/GameからDataset conversion/import/analysisへ依存しない。
+- CreatorはRuntimeを利用できる。
+- shared contractへCreator-only / GUI-only behaviorを入れない。
 
-- Runtime must not include or link Creator Support.
-- Headless/Game execution must not depend on Dataset conversion/import/analysis code.
-- Creator may use Runtime interfaces.
-- Shared protocol/data contracts must not contain Creator-only or GUI-only behavior.
-
-These rules apply to include/import/reference relationships, not only runtime calls.
+include/import/referenceにも適用する。
 
 ## 7. Runtime hot-path exception
 
-Performance-sensitive code is allowed to deviate from normal decomposition when measurement or clear complexity shows that the normal structure would create a meaningful bottleneck.
+実測または明確なcomplexityから通常分割がbottleneckになる場合、性能優先の局所例外を許可する。
 
-Typical hot paths include:
+代表hot path:
 
 - move generation
 - board access
-- evaluation functions
-- search loops
-- transposition-table access
-- rollout / Monte Carlo loops
-- large-scale self-play / Dataset generation
-- character AI candidate evaluation
-- model inference adapters
+- evaluation
+- search
+- transposition table
+- rollout / Monte Carlo
+- large-scale self-play
+- character candidate evaluation
+- model inference
 
-Acceptable exceptions include:
+許可例:
 
-- fixed-size arrays instead of dynamically allocated containers
-- combining tightly coupled calculation stages in one loop
-- avoiding virtual calls in inner loops
-- inlining small helpers
-- data-oriented structures instead of responsibility-heavy class hierarchies
-- caching/precomputation
-- board-size-specific optimized paths
-- specialized 8x8 bitboard implementations
+- fixed-size array
+- tightly-coupled stageのloop統合
+- inner loop virtual call回避
+- small helper inline
+- data-oriented structure
+- cache/precompute
+- board-size specialization
+- 8x8 bitboard specialization
 
-An exception should satisfy all of the following:
+条件:
 
-1. It is limited to the performance-sensitive area.
-2. The public responsibility boundary remains understandable.
-3. The reason is documented if non-obvious.
-4. A benchmark or measurable requirement can justify it when practical.
-5. The exception does not introduce forbidden Creator/Runtime or layer dependencies.
-
-Performance is a valid design requirement; coding rules must not force avoidable overhead into the Runtime.
+1. performance-sensitive範囲に限定。
+2. public responsibility boundaryは理解可能。
+3. 非自明なら理由記録。
+4. 可能ならbenchmark/measurable requirementで根拠を持つ。
+5. layer dependencyを逆転しない。
 
 ## 8. External dependency containment
 
-Keep external dependencies inside the module that needs them.
+外部dependencyは必要module内へ閉じ込める。
 
-Examples:
+例:
 
-- Python process handling -> script evaluator runtime
-- future WASM runtime -> WASM evaluator module
-- GUI framework -> GUI layer only
+- Python process -> Script Evaluator runtime
+- WASM -> WASM evaluator module
+- GUI framework -> GUI layer
 
-Do not leak external-library-specific types through common AI protocol boundaries unless the protocol explicitly defines them.
+common AI contractへlibrary-specific typeを漏らさない。
 
-## 9. Build and quality
+## 9. Build / Quality
 
-Normal changes should:
+通常変更:
 
-- compile successfully
-- pass existing tests
-- preserve normal CI
-- avoid unresolved warnings/errors
-- add tests for important new behavior where practical
+- compile成功
+- existing tests成功
+- CI維持
+- unresolved warning/errorを増やさない
+- 重要behaviorへtest追加
 
-Formatter/linter suppressions must be narrow and have a reason.
+formatter/linter suppressionは狭く理由を持つ。
 
-Performance-specific code may suppress a rule only when the reason is documented and the scope is minimal.
+Release testでは副作用付き `assert(expr)` を禁止する。Releaseでは `NDEBUG` により式自体が消えるため、常時実行される `KADOKA_REQUIRE` 等を使う。
 
-## 10. Review checklist
+## 10. 文書
 
-Check at least:
+仕様・設計・運用文書は日本語を正本とする。
 
-- Does each file/module have one main responsibility?
-- Does each function perform one coherent action?
-- Is Runtime independent from Creator Support?
-- Are processing modules horizontally coupled without need?
-- Are comments explaining intent rather than syntax?
-- Is a new abstraction adding allocations, copies, process launches or virtual dispatch to a hot path?
-- If a performance exception exists, is its scope and reason clear?
-- Does the change build and pass tests?
+詳細: `doc/document-language-policy.md`
 
-## Source design
+仕様変更は日本語正本を先に更新する。
 
-These rules are adapted from `upd-commander-base-design`, especially its recommended practices, dependency rules and implementation quality requirements, with Othello AI Runtime performance exceptions added for this project.
+## Review checklist
+
+- file/moduleの主責務は1つか。
+- functionはcoherent actionか。
+- RuntimeはCreator Supportから独立しているか。
+- 不要なhorizontal couplingはないか。
+- commentは意図を説明しているか。
+- hot pathへallocation/copy/process launch/virtual dispatchを不必要に追加していないか。
+- performance exceptionの範囲/理由は明確か。
+- Core APIへlegal moves等の派生情報を戻していないか。
+- 日本語正本が更新されているか。
+- Release testで副作用付きassertを使っていないか。
+- build/testは通るか。
+
+## 出典
+
+`upd-commander-base-design` のrecommended practice、dependency rule、implementation quality requirementを基に、Othello Runtimeのperformance exceptionを加えている。
