@@ -1,5 +1,7 @@
 # Kadoka Othello AI Architecture
 
+> この文書は日本語正本。文書言語方針は `doc/document-language-policy.md`。
+
 ## 方針
 
 ゲーム本体は最小限のルールエンジンにする。
@@ -19,7 +21,8 @@ GUI、AI、学習、Dataset管理、画面認識などの責務はCoreから分�
 - 終局判定
 - 勝敗と石数
 - 最小限の着手履歴
-- 現在状態のSnapshot生成
+- canonical Core state生成
+- lightweight Game event発行
 
 ## Coreが持たない責務
 
@@ -99,36 +102,38 @@ Creator側に限定するもの:
 
 ## State API
 
-The authoritative exchange contract is `kadoka.core_state.v1` JSON.
+authoritative exchange contractは `kadoka.core_state.v1` JSON。
 
-It contains only:
+含むのは次だけ。
 
 - board
-- side to move
-- time information
+- side-to-move
+- time
 
-Legal moves, history, result metadata, evaluation and search diagnostics are not Core-state fields.
+legal moves、history、result metadata、evaluation、search diagnosticsはCore state fieldではない。
 
-Native Runtime uses the zero-copy `CoreStateView` corresponding to the same semantics, avoiding JSON serialization on the hot path. External/script transports serialize that view to canonical JSON.
+native Runtimeは同じ意味論のzero-copy `CoreStateView` を使い、hot pathでのJSON serializationを避ける。
 
-See `doc/core-api.md`.
+external/script transportだけがcanonical JSONへserializeする。
+
+詳細は `doc/core-api.md`。
 
 ## AI Protocol
 
-All AIs receive the same logical state: board + side to move + time.
+全AIはboard + side-to-move + timeという同じlogical stateを受け取る。
 
-AIs that need legal moves derive them from the state. The old pass-through/drop-legal-moves adapter layer is removed.
+合法手が必要なAIはstateから内部生成する。旧pass-through/drop-legal-moves adapter layerは撤去済み。
 
-All AIs return a proposed move. `Game` validates it authoritatively.
+AIはmove proposalを返し、`Game` がauthoritativeに検証する。
 
-On an illegal proposal:
+illegal proposal:
 
-- board remains unchanged
-- side to move remains unchanged
-- ply remains unchanged
-- `InvalidMove` is emitted through the Core event contract
+- board不変
+- side-to-move不変
+- ply不変
+- Core eventとして `InvalidMove` 発行
 
-Normal game execution uses `think()`. Creator/analysis paths may use `inspect()`.
+通常対局は `think()`、Creator/analysisは必要時に `inspect()` を使う。
 
 ## Model Package
 
@@ -158,11 +163,11 @@ AI Creator専用機能ではない。
 ## Invalid Move
 
 AIが返した着手の合法性は常にGame Coreが判定する。
-合法手一覧を渡していてもAI出力を無条件には信用しない。
+Core APIは合法手一覧をAIへ渡さず、AI出力は常にproposalとして扱う。
 
 Headless Runnerでは違法手の場合は同じ手番で再問い合わせする。
 無限ループ防止のため試行回数上限を持つ。
-通常棋譜・Datasetには成功した合法手のみを残す。
+Game Recordでは違法proposalをGameAuxへ記録し、BoardStateは増やさない。
 
 GUIでは、かどか・まる等の違法手試行に対して専用演出を追加可能。
 
