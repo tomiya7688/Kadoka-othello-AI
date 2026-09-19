@@ -57,7 +57,6 @@ std::string import_ai_package(const AIPackageImportRequest& request) {
     }
     output << "],\n";
     output << "  \"interface\": \"" << package_interface_name(request.interface_type) << "\",\n";
-    output << "  \"adapter\": \"" << escape_json(request.adapter) << "\",\n";
     output << "  \"entry\": \"" << escape_json(entry.filename().string()) << "\",\n";
     output << "  \"capabilities\": [\"move\", \"inspection\"]\n";
     output << "}\n";
