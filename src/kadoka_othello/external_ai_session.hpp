@@ -28,7 +28,7 @@ public:
     ExternalAISession(const ExternalAISession&) = delete;
     ExternalAISession& operator=(const ExternalAISession&) = delete;
 
-    [[nodiscard]] AIInspection inspect(const AdaptedAIInput& input);
+    [[nodiscard]] AIInspection inspect(const AIInput& input);
 
 private:
     class Impl;
