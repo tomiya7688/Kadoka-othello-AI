@@ -98,36 +98,46 @@ Creator側に限定するもの:
 
 詳細は `doc/runtime-creator-boundary.md` を参照。
 
-## State API
+## Core State API
 
-`GameSnapshot` はGUIや外部ツールへ現在局面を渡すための軽量データ構造。
-盤面、手番、合法手、履歴、終局結果を保持する。
+Core と外部層の正規状態交換形式は JSON とする。
 
-Coreは通信方式そのものを持たず、HTTPやIPC等は上位層で実装する。
+Core が状態として公開するのは次の最小情報だけとする。
+
+- 盤面情報
+- 手番
+- 時間情報
+
+合法手一覧、評価値、解放度、履歴、学習ラベル、探索情報などは Core API の正規状態には含めない。
+必要な上位層が Core のルール機能や AI Creator / Dataset Tooling を使って派生させる。
+
+Core は HTTP / IPC 等の transport を所有しない。通信方式は上位層の責務とするが、そこで扱う正規ペイロードの意味論は JSON state を基準とする。
+
+Dataset や学習用に固定長バイナリ・圧縮形式・tensor 等へ変換する場合も、それは AI Creator / Dataset Tooling 側の仕事であり、Core API の正規形式を置き換えない。
 
 ## AI Protocol
 
-すべてのAIは論理的に同じ入出力を使用する。
+Core から見た AI との正規的なやり取りは JSON state と着手提案で構成する。
 
-入力:
+入力 JSON の意味論:
 
-- 現在の盤面
-- 合法手一覧
+- 盤面情報
+- 手番
+- 時間情報
 
 出力:
 
 - 打つ手
 
-AI実装そのものは `IAIEngine`、入力変換は `IAIAdapter` として分離する。
-通常AIは `PassThroughAdapter`、合法手を知らないAIは `DropLegalMovesAdapter` を利用できる。
+合法手一覧は Core API から AI へ与える必須入力ではない。通常AIが合法手を必要とする場合は、受け取った盤面から自分で生成するか、Runtime 内部のルール補助を利用する。Obake Kadoka / Maru のように合法手を知らないAIも同じ状態入力境界を使う。
 
-内蔵AIも外部AIもRunnerから見れば `AIPackage` として同じ扱いにする。
-DLL、外部exe、Python、IPC、ネットワークAIはAdapter/Loader側で吸収し、Core Protocolは変更しない。
+内蔵AIも外部AIも Runner から見れば `AIPackage` として同じ扱いにする。
+DLL、外部exe、Python、IPC、ネットワークAIは Adapter / Loader 側で吸収する。
 
-高速AIでは盤面と合法手をコピーせず参照するnative pathを優先し、JSON等のシリアライズは外部Transport側の責務とする。
+Runtime 内部では性能のため JSON を毎回再パースせず、正規 JSON state と同値な typed/native view を利用してよい。ただしそれは内部最適化であり、Core API の正規形式を別形式へ変更するものではない。
 
 通常のゲーム実行は `think()` を使う。
-`inspect()` はCreator/開発用途であり、対局ホットパスで常用しない。
+`inspect()` は Creator / 開発用途であり、対局ホットパスで常用しない。
 
 詳細は `doc/ai-protocol.md` を参照。
 
@@ -158,14 +168,18 @@ AI Creator専用機能ではない。
 
 ## Invalid Move
 
-AIが返した着手の合法性は常にGame Coreが判定する。
-合法手一覧を渡していてもAI出力を無条件には信用しない。
+AI が返した着手の合法性は常に Game Core が判定する。
 
-Headless Runnerでは違法手の場合は同じ手番で再問い合わせする。
+違法手の場合:
+
+- 盤面は変化しない
+- 手番は進まない
+- Core は違法手イベントを発生させる
+- 上位層はそのイベントを GUI 表示、キャラクター反応、ログ、再問い合わせ等へ利用できる
+
+Headless Runner は違法手イベントを受けて同じ手番で再問い合わせできる。
 無限ループ防止のため試行回数上限を持つ。
 通常棋譜・Datasetには成功した合法手のみを残す。
-
-GUIでは、かどか・まる等の違法手試行に対して専用演出を追加可能。
 
 ## Headless Runner
 
