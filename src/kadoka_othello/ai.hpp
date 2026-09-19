@@ -6,14 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "kadoka_othello/board.hpp"
+#include "kadoka_othello/core_state.hpp"
 
 namespace kadoka::othello {
 
-struct AIInput {
-    const Board* board{nullptr};
-    const std::vector<Position>* legal_moves{nullptr};
-};
+using AIInput = CoreStateView;
 
 struct AIOutput {
     Position move{};
@@ -36,37 +33,15 @@ struct AIInspection {
     std::vector<AIDiagnostic> diagnostics;
 };
 
-struct AdaptedAIInput {
-    const Board* board{nullptr};
-    const std::vector<Position>* legal_moves{nullptr};
-};
-
-class IAIAdapter {
-public:
-    virtual ~IAIAdapter() = default;
-
-    [[nodiscard]] virtual AdaptedAIInput adapt(const AIInput& input) const = 0;
-};
-
-class PassThroughAdapter final : public IAIAdapter {
-public:
-    [[nodiscard]] AdaptedAIInput adapt(const AIInput& input) const override;
-};
-
-class DropLegalMovesAdapter final : public IAIAdapter {
-public:
-    [[nodiscard]] AdaptedAIInput adapt(const AIInput& input) const override;
-};
-
 class IAIEngine {
 public:
     virtual ~IAIEngine() = default;
 
     [[nodiscard]] virtual std::string id() const = 0;
-    [[nodiscard]] virtual AIOutput think(const AdaptedAIInput& input) = 0;
+    [[nodiscard]] virtual AIOutput think(const AIInput& input) = 0;
 
     // Development tools may request candidates and diagnostics. Games should use think() only.
-    [[nodiscard]] virtual AIInspection inspect(const AdaptedAIInput& input);
+    [[nodiscard]] virtual AIInspection inspect(const AIInput& input);
 };
 
 class RandomAI final : public IAIEngine {
@@ -74,8 +49,8 @@ public:
     explicit RandomAI(std::uint64_t seed = 0);
 
     [[nodiscard]] std::string id() const override;
-    [[nodiscard]] AIOutput think(const AdaptedAIInput& input) override;
-    [[nodiscard]] AIInspection inspect(const AdaptedAIInput& input) override;
+    [[nodiscard]] AIOutput think(const AIInput& input) override;
+    [[nodiscard]] AIInspection inspect(const AIInput& input) override;
 
 private:
     std::mt19937_64 rng_;
@@ -83,7 +58,6 @@ private:
 
 struct AIPackage {
     IAIEngine* engine{nullptr};
-    const IAIAdapter* adapter{nullptr};
 };
 
 [[nodiscard]] AIOutput invoke_ai(
