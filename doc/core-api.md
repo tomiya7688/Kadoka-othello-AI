@@ -1,22 +1,22 @@
 # Canonical Core API
 
-Kadoka Othello AI uses one authoritative state contract at the Core boundary.
+Kadoka Othello AIのCore boundaryでは1つのauthoritative state contractを使う。
 
 ## State format
 
-The canonical exchange format is JSON:
+canonical exchange formatはJSON。
 
 ```text
 format = kadoka.core_state.v1
 ```
 
-A state contains only:
+含むもの:
 
-- board size and row-major cells
+- board size + row-major cells
 - side to move
-- time information
+- time
 
-Example:
+例:
 
 ```json
 {
@@ -32,75 +32,77 @@ Example:
 }
 ```
 
-Cell values are:
+cell:
 
 - `0`: empty
 - `1`: black
 - `2`: white
 
-Time values are milliseconds. `null` means that the current time-control policy does not provide that value.
+timeはmillisecond。`null` は現在のtime-control policyが値を提供しないことを示す。
 
-## Not part of Core state
+## Core stateに含めないもの
 
-The canonical state never contains:
-
-- legal move lists
-- candidate lists or rankings
-- evaluations
-- mobility/openness features
+- legal move list
+- candidate/ranking
+- evaluation
+- mobility/openness
 - search diagnostics
 - training labels
 - game history
 - terminal result metadata
 
-These are derived by an AI, AI Runtime helper, AI Creator or Dataset/Analysis tooling.
+必要なAI / Runtime helper / AI Creator / Dataset toolingが派生する。
 
 ## Native fast path
 
-JSON is the public semantic source of truth, but native Runtime code does not serialize and parse JSON on every move.
+JSONがpublic semantic source of truthだが、native Runtimeで毎move serialize/parseはしない。
 
-`CoreStateView` is the typed zero-copy view corresponding one-to-one with `kadoka.core_state.v1`:
+`CoreStateView` が `kadoka.core_state.v1` と1対1の意味論を持つzero-copy typed view。
 
 ```text
 Board reference + side_to_move + time
 ```
 
-Native AI engines receive that view directly. If an AI needs legal moves it derives them from the board and side to move.
+legal movesが必要なAIはboard + side-to-moveから生成する。
 
-`core_state_to_json()` and `parse_core_state_json()` define and test the exchange representation. Internal bitboards, fixed buffers, tensors or other compressed forms remain implementation details.
+`core_state_to_json()` / `parse_core_state_json()` がexchange representationを定義・検証する。
 
-## AI output and legality
+bitboard / fixed buffer / tensor / compressed representationは内部表現。
 
-An AI returns a proposed move. The proposal is never authoritative.
+## AI output / legality
 
-`Game::play()` performs the authoritative legality check and state transition.
+AIはmove proposalを返す。authoritativeではない。
 
-For an illegal move:
+`Game::play()` がlegalityとstate transitionを決定する。
 
-- board is unchanged
-- side to move is unchanged
-- ply is unchanged
-- normal legal-move history is unchanged
-- a `GameEventType::InvalidMove` event is emitted
+illegal move:
 
-Headless may ask the same AI again on the same state subject to its retry limit.
+- board不変
+- side-to-move不変
+- ply不変
+- normal legal history不変
+- `GameEventType::InvalidMove` 発行
 
-## Game events
+Headlessはretry limit内で同じstateを再問い合わせできる。
 
-The Core event contract currently exposes:
+## Game event
+
+Core event:
 
 - `MoveAccepted`
 - `InvalidMove`
 - `Pass`
 - `Terminal`
 
-Listeners are optional. The normal state-transition path does not require a logger or GUI.
+listenerはoptional。
 
-The event contract is the basis for the separate Game Record v1 work in Issue #18.
+通常state transitionはlogger/GUI/Game Record writerを必要としない。
 
-## External/script AI
+Game Record v1はこのevent contractを購読する。
 
-Persistent external sessions keep their framing for request IDs and process lifetime, but the state payload itself is canonical JSON:
+## External/script
+
+persistent sessionではtransport frame内にcanonical JSONを載せる。
 
 ```text
 request 1
@@ -108,10 +110,10 @@ state {"format":"kadoka.core_state.v1",...}
 end
 ```
 
-No legal-move records are sent.
+legal-move recordは送らない。
 
-## Training formats
+## Training format
 
-Binary, compressed, tensor and feature-rich training representations are not alternative Core APIs.
+binary/compressed/tensor/feature-rich formatはalternate Core APIではない。
 
-They belong to AI Creator / Dataset Tooling and must be derivable from canonical state plus explicitly separate provenance/analysis records.
+AI Creator / Dataset Toolingがcanonical state + separate provenance/analysisから生成する。
