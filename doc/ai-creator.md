@@ -1,89 +1,89 @@
-# AI Creator Tool
+# AI Creator
 
-## Purpose
+## 目的
 
-`kadoka_othello_ai_creator` is the development CLI for validating, comparing, benchmarking, and inspecting AI packages without involving the GUI.
+`kadoka_othello_ai_creator` はGUIを介さずAI packageを解析・比較・benchmark・importする開発CLI。
 
-The game runtime consumes only the selected move from `think()`.
-The AI Creator uses `inspect()` and may receive richer development output such as candidate evaluations, policy, value, timing, and diagnostics.
+Game Runtimeは通常 `think()` のmove proposalだけを使う。
+
+AI Creatorは `inspect()` を利用し、candidate evaluation、policy/value、timing、diagnostics等の開発情報を取得できる。
 
 ## Commands
 
-### Analyze one AI
+### 1 AIの解析
 
 ```bat
 build\Release\kadoka_othello_ai_creator.exe analyze src\packages\random\manifest.json
 ```
 
-With an arbitrary position and output file:
+position指定:
 
 ```bat
-build\Release\kadoka_othello_ai_creator.exe analyze src\packages\random\manifest.json samples\position_8x8.txt result.jsonl
+build\Release\kadoka_othello_ai_creator.exe analyze src\packages\random\manifest.json samples\position_8x8.txt
 ```
 
-The command prints:
+出力:
 
 - selected move
 - inference time
-- candidate moves
-- candidate value
-- candidate policy
+- candidate move/value/policy
 - diagnostics
 
-It also writes a `kadoka.jsonl.v1` ModelRecord.
-
-### Compare multiple AIs on the same position
+### 複数AI比較
 
 ```bat
 build\Release\kadoka_othello_ai_creator.exe compare samples\position_8x8.txt manifest_a.json manifest_b.json
 ```
 
-Each AI receives exactly the same board and legal-move list through its configured adapter.
-This is intended for model comparison, regression checks, and disagreement dataset generation.
+各AIは同じboard / side-to-moveを受ける。
 
-### Benchmark inference
+legal movesはCore APIから渡さず、必要なengineがCore rulesから派生する。
+
+用途:
+
+- model comparison
+- regression check
+- disagreement抽出
+
+### Benchmark
 
 ```bat
 build\Release\kadoka_othello_ai_creator.exe benchmark src\packages\random\manifest.json 10000 samples\position_8x8.txt
 ```
 
-Outputs:
+出力:
 
 - iterations
-- total time in microseconds
-- average inference time
-- minimum inference time
-- maximum inference time
+- total_us
+- average_us
+- min_us
+- max_us
 
-This path is intended for Hyper Faster and other latency-sensitive AI development.
+Hyper Faster等のlatency-sensitive AI開発に利用できる。
 
-### List known data mappings
+### Format mapping一覧
 
 ```bat
 build\Release\kadoka_othello_ai_creator.exe formats
 ```
 
-This prints the static field mapping tables used for Kadoka ModelRecord interoperability.
+Kadoka ModelRecord変換用のstatic mappingを表示する。
 
-## Position file format
+## Position file
 
-The current lightweight text input format is intentionally simple and static.
-
-First line:
+先頭行:
 
 ```text
 <board_size> <black|white> <ply>
 ```
 
-Then exactly `board_size` rows follow.
+続けて `board_size` 行。
 
-Characters:
+- `B`: black
+- `W`: white
+- `.`: empty
 
-- `B` = black
-- `W` = white
-- `.` = empty
-
-Example:
+例:
 
 ```text
 8 black 0
@@ -97,51 +97,55 @@ Example:
 ........
 ```
 
-The AI Creator recalculates legal moves from the supplied board and player using the Core rules engine.
+AI Creatorはboard/playerからCore rulesでlegal movesを必要時に再計算する。
 
 ## Inspection contract
 
-`AIInspection` currently contains:
+`AIInspection`:
 
 - selected move
 - candidate list
   - move
   - value
   - policy
-- arbitrary diagnostics
+- diagnostics
 
-An AI does not need to provide all candidate information. Missing information may remain empty or zero depending on the AI type.
+AIごとに全candidate情報を提供する義務はない。
 
-The Random AI uses uniform policy over legal moves as a minimal working example.
+Random AIはlegal setを内部生成し、uniform policyをminimal exampleとして返す。
 
-## Separation from game runtime
+## Runtimeとの分離
 
-Game runtime:
-
-```text
-board + legal moves -> adapter -> AI think() -> selected move
-```
-
-AI Creator:
+Game:
 
 ```text
-board + legal moves -> adapter -> AI inspect()
-                              -> selected move
-                              -> candidates
-                              -> diagnostics
-                              -> benchmark data
-                              -> ModelRecord
+CoreStateView
+  -> AI think()
+  -> move proposal
+  -> Game validation
 ```
 
-This keeps the game path minimal while letting development tools receive richer outputs.
+Creator:
 
-## Planned next extensions
+```text
+CoreStateView
+  -> AI inspect()
+  -> move
+  -> candidates
+  -> diagnostics
+  -> benchmark data
+```
+
+通常Game pathへCreator analysisを混ぜない。
+
+## 今後
+
+Issueに従って追加する候補:
 
 - selectable output codec
-- static conversion execution, not only mapping display
-- candidate visualization export for GUI
-- batch position analysis
+- conversion execution拡張
+- candidate visualization export
 - disagreement extraction
-- dynamic-library package loading
-- external-process and Python package loading
-- per-stage timing diagnostics
+- dynamic-library loading
+- per-stage timing
+- Dataset Pool / Relabelとの接続
