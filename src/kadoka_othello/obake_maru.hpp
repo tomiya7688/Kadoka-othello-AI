@@ -27,8 +27,8 @@ public:
         ObakeMaruConfig config = {});
 
     [[nodiscard]] std::string id() const override;
-    [[nodiscard]] AIOutput think(const AdaptedAIInput& input) override;
-    [[nodiscard]] AIInspection inspect(const AdaptedAIInput& input) override;
+    [[nodiscard]] AIOutput think(const AIInput& input) override;
+    [[nodiscard]] AIInspection inspect(const AIInput& input) override;
 
 private:
     struct Candidate {
