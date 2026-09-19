@@ -8,7 +8,9 @@ This file is a compact index of what is implemented now. It is not a replacement
 
 - Variable-size board implementation supporting 6x6 / 8x8 / 10x10.
 - Rules, legal move generation, game state and headless execution.
-- Common AI input/output contract and adapters.
+- Canonical `kadoka.core_state.v1` Core API: board + side to move + time only.
+- Native AI hot path uses the semantically equivalent zero-copy `CoreStateView`; legal moves are not an AI/Core input field.
+- Game emits explicit `MoveAccepted` / `InvalidMove` / `Pass` / `Terminal` events; illegal moves preserve board, side and ply.
 - AI package manifest loading.
 - Runtime and Creator Support are separate CMake targets.
 - `KADOKA_BUILD_AI_CREATOR=OFF` provides a Runtime-only CMake configuration; Headless/core tests build without Creator Support.
@@ -39,7 +41,7 @@ This file is a compact index of what is implemented now. It is not a replacement
 
 #### Obake Kadoka
 
-- Does not receive legal moves.
+- Does not receive legal moves from Core; it intentionally evaluates empty squares.
 - Uses Kadoka-specific local board features rather than normal Othello strategy.
 - Uses weighted randomness.
 - Keeps short attempt memory including inferred rejected moves.
@@ -47,7 +49,7 @@ This file is a compact index of what is implemented now. It is not a replacement
 
 #### Obake Maru
 
-- Does not receive legal moves.
+- Does not receive legal moves from Core; it intentionally evaluates empty squares.
 - Uses a much weaker local-interest evaluator and high randomness.
 - Remembers only the immediately previous rejected attempt.
 
@@ -71,6 +73,8 @@ This file is a compact index of what is implemented now. It is not a replacement
 - Sibling-project cross-adoption policy is documented in `doc/sibling-project-alignment.md`.
 
 ## Open / Pending Work
+
+- Game Record v1 (#18): split BoardState JSONL and GameAux JSONL with ULID/game_id + ply/event_index.
 
 - Connect a production AI model that actually consumes `native_in_process` Script Evaluator assets during Headless/Creator inference; the Runtime evaluator path and smoke module exist, but no current character AI requires this asset yet.
 - Complete comparative performance measurements for `python_process` / `native_process` / `native_in_process` under identical inputs.
