@@ -77,6 +77,7 @@ public:
 
     [[nodiscard]] const DatasetEntry* find(const std::string& dataset_id) const noexcept;
     [[nodiscard]] const std::vector<DatasetEntry>& entries() const noexcept;
+    void validate() const;
     [[nodiscard]] ResolvedDatasetRecipe resolve(const DatasetRecipe& recipe) const;
 
 private:
