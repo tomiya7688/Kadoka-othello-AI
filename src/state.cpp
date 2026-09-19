@@ -8,7 +8,7 @@ GameSnapshot make_snapshot(
     return make_core_state(CoreStateView{
         &game.board(),
         game.current_player(),
-        std::move(time),
+        time,
     });
 }
 
