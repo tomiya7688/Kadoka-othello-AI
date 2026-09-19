@@ -1,6 +1,8 @@
-# External AI Protocol v1
+# External AI Protocol
 
-AI Creator can import Python scripts and external executables as Kadoka AI packages.
+AI CreatorはPython scriptやexternal executableをKadoka AI packageとしてimportできる。
+
+通常実行はpersistent sessionを使用する。旧temp-file方式は `legacy_oneshot` compatibilityのみ。
 
 ## Import
 
@@ -8,65 +10,108 @@ AI Creator can import Python scripts and external executables as Kadoka AI packa
 kadoka_othello_ai_creator.exe import python my_ai.py packages\my_ai my.ai "My AI"
 ```
 
-or:
-
 ```bat
 kadoka_othello_ai_creator.exe import external_process my_ai.exe packages\my_ai my.ai "My AI"
 ```
 
-The source file is copied into the package directory and a `manifest.json` is generated.
+sourceはpackage directoryへcopyされ、`manifest.json` を生成する。
 
-## Runtime invocation
+## 標準transport: persistent
 
-Imported external AIs are invoked with:
+manifest:
+
+```json
+{
+  "interface": "external_process",
+  "entry": "my_ai.exe",
+  "transport": "persistent",
+  "timeout_ms": 5000
+}
+```
+
+起動後はstdin/stdoutを同一processで再利用する。
+
+Request:
+
+```text
+request 1
+state {"format":"kadoka.core_state.v1","board_size":8,"cells":[...],"side_to_move":"black","time":{"black_remaining_ms":null,"white_remaining_ms":null,"move_limit_ms":null}}
+end
+```
+
+Core stateはboard / side-to-move / timeのみ。legal move listは送らない。
+
+Response:
+
+```text
+result 1
+move 2 3
+diag source=my_ai
+candidate 2 3 0.42 0.70
+end
+```
+
+必須:
+
+- request IDと一致する `result <id>`
+- `move <row> <col>`
+- `end`
+
+optional:
+
+- `candidate row col value policy`
+- `diag key=value`
+
+Game Runtimeがauthorityとしてmoveを検証する。
+
+## legacy_oneshot
+
+互換性用にtemp-file方式を残す。
+
+manifest:
+
+```json
+{"transport":"legacy_oneshot"}
+```
+
+起動形:
 
 ```text
 <entry> --kadoka-input <request-file> --kadoka-output <response-file>
 ```
 
-Python packages are invoked through `python <entry> ...`.
+request fileにはcanonical `kadoka.core_state.v1` JSONを1行で書く。
 
-## Request format
+旧 `KADOKA_AI_PROTOCOL 1` + `legal_count` 形式は現行contractではない。
 
-```text
-KADOKA_AI_PROTOCOL 1
-size 8
-........
-........
-........
-...WB...
-...BW...
-........
-........
-........
-legal_count 4
-2 3
-3 2
-4 5
-5 4
-```
+新packageは `legacy_oneshot` を使用しない。
 
-If the package uses `drop_legal_moves`, `legal_count` is 0 and the list is omitted.
+## Failure
 
-## Response format
+Runtimeは次をerrorとして扱う。
 
-Minimum response:
+- process start失敗
+- timeout
+- response完了前のprocess exit
+- request ID mismatch
+- malformed/unknown response record
+- move欠落
+
+illegal move proposalはtransport errorではない。
+
+Game Coreがrejectし、board / side / plyを変えず `InvalidMove` eventを発行する。
+
+## Performance
+
+優先順の目安:
 
 ```text
-move 2 3
+native / native_in_process
+-> dynamic_library
+-> persistent external_process / script
+-> legacy_oneshot
 ```
 
-Optional development output:
+native AIをexternal protocol経由にしない。
 
-```text
-candidate 2 3 0.42 0.70
-candidate 3 2 0.38 0.30
-diag nodes=12000
-diag depth=7
-```
-
-The game runtime consumes only `move`. AI Creator can consume `candidate` and `diag` records.
-
-## Performance note
-
-The external-process protocol starts a process and uses temporary files, so it is intended for compatibility, prototyping and model development. High-speed engines should use the future dynamic-library/native interface so board and legal-move data can be passed without serialization or process startup overhead.
+詳細は `doc/external-ai-session.md`。
