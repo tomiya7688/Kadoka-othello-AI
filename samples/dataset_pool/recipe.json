@@ -1,0 +1,10 @@
+{
+  "format": "kadoka.dataset_recipe.v1",
+  "recipe_id": "sample-obake-kadoka-training-v1",
+  "model_id": "kadoka.obake_kadoka",
+  "usage": "training",
+  "datasets": [
+    {"dataset_id": "sample-uncertain-8", "ratio": 0.4},
+    {"dataset_id": "sample-league-8", "ratio": 0.6}
+  ]
+}
