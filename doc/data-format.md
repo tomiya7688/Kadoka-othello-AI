@@ -1,35 +1,82 @@
 # State / Dataset Format
 
-## Cell値
+## Cell values
 
 - `0`: Empty
 - `1`: Black
 - `2`: White
 
-## GameSnapshot JSON
+## Canonical Core State JSON
 
-初期Dataset出力は1行1局面のJSON Lines形式。
-各着手後のSnapshotを1行として出力する。
+JSON is the canonical format for state exchange across the Othello Core boundary.
 
-例:
+The canonical state contains only:
+
+- board information
+- side to move
+- time information
+
+Example:
 
 ```json
-{"board_size":8,"current_player":"white","status":"playing","cells":[0,0,0],"legal_moves":[{"row":2,"col":2}],"history":[{"player":"black","row":2,"col":3}],"result":null}
+{
+  "board_size": 8,
+  "cells": [0, 0, 0, 0],
+  "current_player": "black",
+  "time": {
+    "black_ms": 300000,
+    "white_ms": 300000
+  }
+}
 ```
 
-主なフィールド:
+The exact time-control fields may be extended while preserving the rule that Core state exchange carries game state/time, not AI-analysis annotations.
 
-- `board_size`: 盤面の一辺
-- `current_player`: 次の手番
-- `status`: `playing` / `finished`
-- `cells`: row-majorの盤面配列
-- `legal_moves`: 現手番の合法手
-- `history`: ここまでの合法着手履歴
-- `result`: 終局前はnull、終局後は石数とwinner
+The canonical Core state does **not** include:
 
-## 注意
+- legal moves
+- evaluation values
+- mobility / openness analysis
+- candidate rankings
+- learning labels
+- compressed training representations
 
-JSON Linesは初期実装とデバッグ・相互運用向け。
-大量学習データ生成ではI/O容量がボトルネックになるため、将来的に固定長バイナリや圧縮形式を追加する。
+These are derived or tooling-owned data.
 
-Core内部の盤面表現とDataset形式は分離し、出力形式を追加してもゲームルール実装へ影響させない。
+## Move and invalid-move event
+
+A move is submitted separately from the state.
+
+The Core validates it against the authoritative rules.
+
+If the move is illegal:
+
+- board state is unchanged;
+- side to move is unchanged;
+- an invalid-move event is emitted.
+
+The event can be recorded by GUI, Headless, character behavior or developer tooling without being written as a successful move in ordinary game history.
+
+## Dataset records
+
+AI Creator / Dataset Tooling may enrich canonical states with fields such as:
+
+- legal moves
+- successful move history
+- game result
+- evaluations
+- search diagnostics
+- model/version provenance
+- relabeling metadata
+
+JSON Lines is the default interoperable/debug-friendly dataset representation.
+
+A dataset record may therefore contain more information than the canonical Core State JSON. That does not make those extra fields part of the Core API.
+
+## Compression and training formats
+
+Fixed-length binary, compressed formats, bitboards, tensors and other high-throughput training representations are AI Creator / Dataset Tooling concerns.
+
+They may be generated from canonical JSON / JSONL and converted back when needed.
+
+The Core API remains JSON regardless of dataset storage optimizations.
