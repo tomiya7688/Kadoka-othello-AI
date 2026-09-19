@@ -1,24 +1,20 @@
 # Game Record v1
 
-Game Record v1 stores an actual Othello game as two independent UTF-8 JSON Lines streams.
+Game Record v1は実際のOthello対局を2本のUTF-8 JSON Linesへ分離保存する。
 
-The split is intentional:
+- **BoardState JSONL**: canonical position sequence
+- **GameAux JSONL**: action / illegal attempt / pass / terminal等
 
-- **BoardState JSONL** is the canonical position sequence.
-- **GameAux JSONL** stores actions, invalid attempts, pass and terminal information without duplicating the board.
-
-The streams join on `game_id + ply`. Multiple events on the same ply are ordered by `event_index`.
+`game_id + ply` でjoinし、同一plyの複数eventは `event_index` で順序付けする。
 
 ## BoardState JSONL
-
-Schema:
 
 ```text
 schema = kadoka.board_state
 version = 1
 ```
 
-Example:
+例:
 
 ```json
 {
@@ -37,28 +33,26 @@ Example:
 }
 ```
 
-The board fields have the same meaning as `kadoka.core_state.v1`.
+board fieldの意味は `kadoka.core_state.v1` と同じ。
 
-BoardState is written:
+書くタイミング:
 
-- once for the initial position at `ply = 0`
-- after every accepted move
-- after every accepted pass
+- initial position: `ply=0`
+- accepted move後
+- accepted pass後
 
-It is **not** written for an illegal proposal.
+illegal proposalでは新BoardStateを書かない。
 
-It never contains legal moves, evaluation, search diagnostics, rating or training labels.
+legal moves / evaluation / search diagnostics / rating / training labelは含めない。
 
 ## GameAux JSONL
-
-Schema:
 
 ```text
 schema = kadoka.game_aux
 version = 1
 ```
 
-Accepted move:
+accepted move例:
 
 ```json
 {
@@ -75,18 +69,18 @@ Accepted move:
 }
 ```
 
-Illegal proposal generates two auxiliary records at the unchanged ply:
+illegal proposalは同じplyで2 Aux recordを生成する。
 
 ```text
 illegal_move
 invalid_move_notification
 ```
 
-The first records the rejected proposal. The second records the Core notification consumed by GUI / Headless / character behavior / loggers.
+1つ目はrejectされたproposal、2つ目はGUI/Headless/character/loggerが購読できるCore notification。
 
-No BoardState is added for either record.
+いずれもBoardStateを追加しない。
 
-Pass:
+### Pass
 
 ```json
 {
@@ -96,9 +90,11 @@ Pass:
 }
 ```
 
-A pass consumes a turn, so `ply` increases by one. Its BoardState has unchanged cells and the next `side_to_move`.
+passは1手番を正常消化するため `ply + 1`。
 
-Terminal event:
+対応BoardStateはcells不変で `side_to_move` が次手番へ変わる。
+
+### Terminal
 
 ```json
 {
@@ -114,46 +110,41 @@ Terminal event:
 }
 ```
 
-## Index rules
+## Index rule
 
-- `game_id` is a 26-character ULID.
-- initial BoardState is `ply = 0`
-- accepted move increments `ply`
-- pass increments `ply`
-- illegal proposal does not increment `ply`
-- `event_index` starts at zero and increases for every GameAux row
-- every GameAux row can be joined to the BoardState with the same `game_id + ply`
-
-A terminal event shares the final position's ply.
+- `game_id`: 26文字ULID
+- initial BoardState: `ply=0`
+- accepted move: `ply + 1`
+- pass: `ply + 1`
+- illegal: ply不変
+- `event_index`: 0開始、GameAux recordごとに+1
+- 全GameAuxは同じ `game_id + ply` のBoardStateへjoin可能
+- terminalはfinal positionのplyを共有
 
 ## Runtime architecture
 
-`Game` owns only authoritative state transitions and emits lightweight typed events.
+`Game` はauthoritative state transitionとlightweight typed eventだけを所有する。
 
-`GameRecordRecorder` subscribes to those events and accumulates Record v1 data. The game does not depend on JSON writer logic.
+`GameRecordRecorder` がeventを購読してRecordを構築する。
 
-Normal play pays no Record serialization cost unless a recorder is explicitly attached.
+GameはJSON writerへ依存しない。
 
-Headless writes the two streams only after each game reaches terminal state.
+Recorder未接続の通常playではRecord serialization costを払わない。
 
-## Reader / writer
+Headlessはgame terminal後に2 streamを書き出す。
 
-Runtime exposes:
+## Reader / Writer
 
 - `board_state_record_to_json()`
 - `game_aux_record_to_json()`
-- parsers for both record types
+- 各record parser
 - `write_game_record_jsonl()`
 - `read_game_record_jsonl()`
 - `read_game_records_jsonl()`
 
-Readers ignore unknown optional fields while requiring the v1 schema/version and known required fields.
+readerはv1 schema/versionとrequired fieldを検証し、unknown optional fieldを無視できる。
 
 ## Headless CLI
-
-Existing arguments remain compatible.
-
-Optional Record paths are appended:
 
 ```text
 kadoka_othello_headless \
@@ -162,26 +153,26 @@ kadoka_othello_headless \
   <board-state.jsonl|-> <game-aux.jsonl|->
 ```
 
-Both Record paths must be supplied together.
+Record pathは2本同時指定する。
 
-Example:
+例:
 
 ```text
 kadoka_othello_headless 100 8 - 12345 - - board-state.jsonl game-aux.jsonl
 ```
 
-The legacy state output remains temporarily available for compatibility. Dataset Pool work should consume Record/provenance rather than extending that transitional stream.
+legacy state outputはcompatibilityのため当面残す。
 
-## Scope
+Dataset Poolはtransitional streamを拡張せずRecord/provenanceを利用する。
 
-Record v1 deliberately excludes:
+## 非対象
 
-- compressed/tensor training formats
-- AI search logs
-- legal move lists
-- evaluations
+- compressed/tensor training format
+- AI search log
+- legal move list
+- evaluation
 - rating
-- relabel data
+- relabel
 - GUI presentation
 
-Those belong to AI Creator / Dataset / Analysis layers.
+これらはAI Creator / Dataset / Analysis責務。
