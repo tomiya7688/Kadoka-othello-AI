@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -34,6 +35,7 @@ struct GameEvent {
 };
 
 using GameEventListener = std::function<void(const GameEvent&)>;
+using GameEventListenerId = std::uint64_t;
 
 class Game {
 public:
@@ -49,7 +51,8 @@ public:
     bool play(Position position);
     bool pass();
     void reset();
-    void add_event_listener(GameEventListener listener);
+    [[nodiscard]] GameEventListenerId add_event_listener(GameEventListener listener);
+    void remove_event_listener(GameEventListenerId listener_id) noexcept;
 
 private:
     void advance_turn();
@@ -63,7 +66,13 @@ private:
     std::size_t consecutive_passes_{0};
     std::size_t ply_{0};
     std::vector<Move> history_;
-    std::vector<GameEventListener> listeners_;
+    struct ListenerEntry {
+        GameEventListenerId id{};
+        GameEventListener listener;
+    };
+
+    std::vector<ListenerEntry> listeners_;
+    GameEventListenerId next_listener_id_{1};
 };
 
 }  // namespace kadoka::othello
