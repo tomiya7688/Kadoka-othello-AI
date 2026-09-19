@@ -101,18 +101,25 @@ Shared concepts include:
 - optional `AIInspection`
 - `ScriptEvaluator`
 
-The game contract remains:
+The Core/API contract remains:
 
 ```text
-input:
+canonical JSON input:
   board
-  legal moves
+  side to move
+  time
 
 output:
-  selected move
+  proposed move
+
+illegal proposal:
+  board/turn unchanged
+  invalid-move event
 ```
 
-Adapters may remove information before the model receives it. For example Obake Kadoka and Obake Maru use `drop_legal_moves`.
+Legal moves are not part of the canonical input contract. Models that need them derive them from board state or Runtime-internal rule helpers.
+
+Runtime may decode canonical JSON into a typed/native view for hot-path execution. That optimization must remain semantically equivalent to the JSON contract and must not become a second public state format.
 
 ## Hot path rule
 
@@ -163,15 +170,15 @@ For `python_process`, candidates should be batch-evaluated in one process invoca
 
 Headless self-play belongs to Runtime because it is repeated game execution.
 
-Dataset serialization, transformation, relabeling, conversion and analysis belong to Creator/tooling.
+Dataset serialization, transformation, relabeling, conversion, compression and analysis belong to Creator/tooling.
 
 Recommended flow:
 
 ```text
 Runtime self-play
-  -> compact game/result stream
+  -> canonical JSON state / move / event stream
   -> Creator / dataset tools
-  -> analysis / conversion / training data
+  -> enrichment / compression / conversion / training data
 ```
 
 The Runtime may emit minimal raw records when explicitly enabled, but it should not own heavy dataset processing.
