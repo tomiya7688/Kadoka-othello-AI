@@ -38,10 +38,14 @@ struct HeadlessSummary {
     const HeadlessConfig& config,
     AIPackage black,
     AIPackage white,
-    std::ostream* dataset_output = nullptr);
+    std::ostream* dataset_output = nullptr,
+    std::ostream* board_state_output = nullptr,
+    std::ostream* game_aux_output = nullptr);
 
 [[nodiscard]] HeadlessSummary run_random_games(
     const HeadlessConfig& config,
-    std::ostream* dataset_output = nullptr);
+    std::ostream* dataset_output = nullptr,
+    std::ostream* board_state_output = nullptr,
+    std::ostream* game_aux_output = nullptr);
 
 }  // namespace kadoka::othello
