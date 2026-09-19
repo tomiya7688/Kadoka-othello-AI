@@ -1,23 +1,24 @@
-# AI Package Specification
+# AI Package仕様
 
-## Goal
+## 目的
 
-Kadoka Othello AI treats built-in and external AIs as packages behind one common protocol.
+built-in / external AIを共通package contractで扱う。
 
-Game input is always:
+Game-facing入力:
 
 - current board
-- legal moves
+- side to move
+- time
 
-Game output is always:
+legal move listは含まない。
 
-- selected move
+出力:
 
-Development tools may additionally request inspection data.
+- selected move proposal
 
-## AI Creator standard package
+development toolは追加でinspection dataを要求できる。
 
-AI Creator uses the following package layout as the standard form for Kadoka models and imported AIs.
+## 標準package
 
 ```text
 my_ai/
@@ -28,9 +29,11 @@ my_ai/
   optional assets/
 ```
 
-`manifest.json` is always the package entry point. `model` is optional for engines that do not require separate model data. `metadata` is optional for legacy/internal packages but recommended for new distributable models.
+- `manifest.json`: package entry point
+- `model`: separate model dataが不要なengineではoptional
+- `metadata`: legacy/internalではoptional、新規distribution modelでは推奨
 
-Example:
+例:
 
 ```json
 {
@@ -40,7 +43,6 @@ Example:
   "protocol_version": 1,
   "board_sizes": [6, 8, 10],
   "interface": "native",
-  "adapter": "drop_legal_moves",
   "entry": "builtin:kadoka.obake_kadoka",
   "model": "model.json",
   "metadata": "metadata.json",
@@ -56,7 +58,6 @@ Example:
 - `protocol_version`
 - `board_sizes`
 - `interface`
-- `adapter`
 - `entry`
 
 Optional:
@@ -64,43 +65,45 @@ Optional:
 - `model`
 - `metadata`
 - `capabilities`
+- external/script用 `transport`, `executable`, `timeout_ms`
+
+旧manifestの `adapter` keyはcompatibility上unknown fieldとして無視可能だが、現行manifest fieldではない。
 
 ## Model files
 
-`model.json` is the Othello model root descriptor and may reference evaluator, behavior, network, opening, search, scripted evaluator, or other assets. Large learned models may use binary weights while keeping the same package manifest contract.
+`model.json` はOthello model root descriptor。
 
-The execution and metadata responsibilities are intentionally separate:
+evaluator、behavior、network、opening、search、script evaluator等をassetとして参照できる。
 
 ```text
 manifest -> engine selection / runtime entry
 manifest.model -> executable model/config/assets
-manifest.metadata -> Kadoka AI family identity/provenance/requirements/benchmark metadata
+manifest.metadata -> family identity/provenance/requirements/benchmark metadata
 ```
 
-This lets model packages be updated or distributed without changing the game protocol while still exposing common metadata to sibling-project tooling.
+`metadata.json` は `kadoka.ai_metadata.v1`。詳細は `doc/family-model-metadata.md`。
 
-`metadata.json` uses `kadoka.ai_metadata.v1`; see `doc/family-model-metadata.md`.
+## Interface
 
-## Interface types
+- `native`: in-process C++
+- `dynamic_library`: separately distributed native engine用に予約
+- `external_process`: executable persistent/legacy process
+- `python`: Python script/process compatibility interface
+- `network`: remote inference用に予約
 
-- `native`: in-process C++ implementation, fastest path for built-in/Kadoka models
-- `dynamic_library`: reserved for separately distributed native engines
-- `external_process`: executable process adapter
-- `python`: Python process adapter
-- `network`: reserved for remote inference
+high-throughput Dataset生成は `native` / 将来の `dynamic_library` を優先する。
 
-For high-throughput Dataset generation, prefer `native` or later `dynamic_library`; process-based adapters are compatibility paths rather than the fastest path.
+## Core APIとの関係
 
-## Adapter
+packageへ渡るsemantic stateの正は `kadoka.core_state.v1`。
 
-Initial adapters:
+nativeは同値な `CoreStateView` を使い、external/scriptはcanonical JSONへserializeする。
 
-- `pass_through`: board + legal moves
-- `drop_legal_moves`: board only
+合法手が必要なAIはboard + side-to-moveから内部生成する。
 
-`drop_legal_moves` is used by Obake Kadoka / Obake Maru. The game still provides legal moves to the package protocol, but the adapter removes them before the character AI sees the input.
+旧 `PassThroughAdapter` / `DropLegalMovesAdapter` は撤去済み。
 
-## Standard example: Obake Kadoka
+## Obake Kadoka例
 
 ```text
 src/packages/obake_kadoka/
@@ -111,4 +114,4 @@ src/packages/obake_kadoka/
   behavior.json
 ```
 
-Obake Kadoka is intentionally implemented as a native model so Dataset generation can call it without process startup, JSON serialization, or temporary-file overhead.
+Obake Kadokaはnative modelなので、Dataset generationでper-move process startup / JSON serialization / temp-file I/Oを必要としない。
