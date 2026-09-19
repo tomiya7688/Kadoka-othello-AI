@@ -1,35 +1,37 @@
 # Persistent External AI Session
 
-## Purpose
+## 目的
 
-External/script AIs use a long-lived stdin/stdout session by default.
+external/script AIは既定でlong-lived stdin/stdout sessionを使用する。
 
-The runtime starts one child process for the lifetime of the loaded AI package and reuses it for subsequent decisions. This avoids the old per-move path:
+package load時にchild processを1回起動し、複数decisionで再利用する。
+
+旧方式:
 
 ```text
-create temp request
--> spawn process
--> create temp response
+temp request作成
+-> process起動
+-> temp response作成
 -> parse
--> delete temp files
+-> temp file削除
 ```
 
-The normal path is now:
+標準方式:
 
 ```text
-load package
--> start child process once
--> request/result over pipes
--> request/result over the same pipes
+package load
+-> child processを1回起動
+-> pipe上でrequest/result
+-> 同じprocessでrequest/result
 -> ...
--> destroy package / close stdin
+-> package破棄 / stdin close
 ```
 
-This transport belongs to Runtime. AI Creator may load packages through it, but Runtime does not depend on Creator.
+transportはRuntime責務。CreatorはRuntime経由で利用できるがRuntimeからCreatorへ依存しない。
 
 ## Manifest
 
-External executable:
+external executable:
 
 ```json
 {
@@ -40,7 +42,7 @@ External executable:
 }
 ```
 
-Script:
+script:
 
 ```json
 {
@@ -52,39 +54,39 @@ Script:
 }
 ```
 
-`persistent` is the default transport.
+`persistent` がdefault。
 
-The old temp-file transport remains only for compatibility:
+旧temp-file transportはcompatibility用:
 
 ```json
-{
-  "transport": "legacy_oneshot"
-}
+{"transport":"legacy_oneshot"}
 ```
 
-New packages should not use `legacy_oneshot`.
+新packageでは使用しない。
 
-## Process startup and shutdown
+## Process lifetime
 
-Persistent executable packages are launched as:
+external executable:
 
 ```text
 <entry> --kadoka-session
 ```
 
-Script packages are launched as:
+script:
 
 ```text
 <executable> <entry> --kadoka-session
 ```
 
-The child process remains alive and reads requests from stdin. Normal shutdown is signaled by stdin EOF when the package/session is destroyed. A child that does not exit promptly after EOF may be terminated by the runtime.
+childはstdinを読み続ける。package/session破棄時のstdin EOFがnormal shutdown signal。
 
-This avoids writing a shutdown command to a pipe after a crashed child has already closed it.
+EOF後も終了しないchildはRuntimeがterminateできる。
 
-## Request protocol
+crash済みchildへshutdown commandを書き込む方式は使わない。
 
-Each request has a monotonically increasing ID. The transport frame is line-oriented, but the state payload is the canonical Core JSON object.
+## Request
+
+request IDはsession内で単調増加。
 
 ```text
 request 1
@@ -92,11 +94,13 @@ state {"format":"kadoka.core_state.v1","board_size":8,"cells":[...],"side_to_mov
 end
 ```
 
-No legal-move list is sent. An external AI that needs legal moves derives them from the board and side to move.
+state payloadはcanonical Core JSON。
 
-The same `kadoka.core_state.v1` object is used for 6x6, 8x8 and 10x10.
+legal-move listは送らない。必要なexternal AIがboard + side-to-moveから生成する。
 
-## Response protocol
+6x6 / 8x8 / 10x10で同じcontractを使う。
+
+## Response
 
 ```text
 result 1
@@ -107,62 +111,64 @@ candidate 3 2 1.10 0.20
 end
 ```
 
-Required:
+必須:
 
 - matching `result <request_id>`
-- one `move <row> <col>`
+- 1つの `move <row> <col>`
 - terminating `end`
 
-Optional:
+optional:
 
 - `diag key=value`
 - `candidate row col value policy`
 
-Unknown or malformed records are rejected instead of being silently accepted.
+unknown/malformed recordは黙って受理せずrejectする。
 
-## Failure behavior
+## Failure
 
-The runtime reports an error when:
+次をRuntime errorにする。
 
-- the process cannot start;
-- the process exits before completing a response;
-- the response times out;
-- the response ID does not match the request;
-- the response is malformed;
-- no move is returned.
+- processを開始できない
+- response完了前にprocess exit
+- timeout
+- response ID mismatch
+- malformed response
+- moveなし
 
-On POSIX, writes to a child that has already closed stdin are converted to normal `EPIPE` errors instead of allowing `SIGPIPE` to terminate the game process.
+POSIXではchildがstdinを閉じた後のwriteを通常の `EPIPE` errorとして扱い、`SIGPIPE` でgame process全体を終了させない。
 
-The external AI does not own the canonical board. Its move remains a proposal and the game core performs legality/state-transition validation. Illegal proposals leave board/turn/ply unchanged and emit an invalid-move event.
+external AIはcanonical boardを所有しない。moveはproposalで、Game Coreがlegality/state transitionを検証する。
+
+illegal proposalではboard / side / ply不変 + invalid-move event。
 
 ## Performance boundary
 
-Persistent transport removes per-move process startup and temporary files, but serialization and pipe I/O still exist.
-
-Use these in descending performance preference when practical:
+persistent transportは毎手process launch/temp fileを除去するが、serialization + pipe I/Oは残る。
 
 ```text
 native / native_in_process
 -> dynamic_library
 -> persistent external_process / script
--> legacy_oneshot compatibility path
+-> legacy_oneshot
 ```
 
-Do not route native AIs through this protocol.
+native AIをこのprotocolへ迂回させない。
 
-## Parallel dataset generation
+## Parallel Dataset generation
 
-An `ExternalAISession` owns one child process and is not a shared global session. Dataset workers should own independent package/session instances. This avoids a global lock in the simulation hot path and gives each worker an independent failure boundary.
+`ExternalAISession` は1 child processを所有し、global shared sessionにしない。
+
+Dataset workerごとに独立package/sessionを持たせ、simulation hot pathのglobal lockとfailure共有を避ける。
 
 ## Tests
 
-`kadoka_external_ai_session_test` verifies:
+`kadoka_external_ai_session_test`:
 
-- two requests reuse the same process;
-- normal legal response;
-- illegal proposal does not alter canonical game state;
-- malformed response rejection;
-- process exit detection;
-- timeout detection.
+- 同一processを2 requestで再利用
+- canonical JSONからexternal helper自身がlegal moveを生成
+- illegal proposalでcanonical state不変
+- malformed response reject
+- process exit検出
+- timeout検出
 
-The test helper is `kadoka_external_ai_session_helper`.
+helper: `kadoka_external_ai_session_helper`
