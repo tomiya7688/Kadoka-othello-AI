@@ -129,6 +129,15 @@ if(KADOKA_BUILD_AI_CREATOR)
         PRIVATE
             kadoka_othello_creator_support
     )
+
+    add_executable(kadoka_dataset_tool
+        src/tools/dataset_tool_main.cpp
+    )
+
+    target_link_libraries(kadoka_dataset_tool
+        PRIVATE
+            kadoka_othello_creator_support
+    )
 endif()
 
 add_executable(kadoka_script_evaluator_probe
@@ -362,6 +371,45 @@ if(BUILD_TESTING)
         add_test(
             NAME kadoka_dataset_pool_tests
             COMMAND kadoka_dataset_pool_tests
+        )
+
+        add_test(
+            NAME kadoka_dataset_tool_validate
+            COMMAND kadoka_dataset_tool
+                validate
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/dataset_pool/registry.jsonl"
+        )
+
+        add_test(
+            NAME kadoka_dataset_tool_plan
+            COMMAND kadoka_dataset_tool
+                plan
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/dataset_pool/registry.jsonl"
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/dataset_pool/recipe.json"
+        )
+
+        add_test(
+            NAME kadoka_dataset_tool_attach_recipe
+            COMMAND kadoka_dataset_tool
+                attach-recipe
+                "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/metadata.json"
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/dataset_pool/recipe.json"
+                "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/dataset_recipe_metadata.json"
+        )
+
+        add_test(
+            NAME kadoka_dataset_tool_metadata_validation
+            COMMAND
+                ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/family_metadata/script/validate_metadata.py"
+                --game othello
+                "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/dataset_recipe_metadata.json"
+        )
+
+        set_tests_properties(
+            kadoka_dataset_tool_metadata_validation
+            PROPERTIES
+                DEPENDS kadoka_dataset_tool_attach_recipe
         )
     endif()
 
