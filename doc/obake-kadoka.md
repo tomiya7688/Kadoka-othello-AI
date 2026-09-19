@@ -2,71 +2,82 @@
 
 ## Package
 
-Obake Kadoka is the reference Kadoka-native distributable model package.
+Obake KadokaはKadoka-native character modelのreference package。
 
 ```text
 src/packages/obake_kadoka/
   manifest.json
+  metadata.json
   model.json
+  evaluator.json
+  behavior.json
 ```
-
-It follows the same AI Creator package format used by other Kadoka models.
 
 ## Character behavior
 
-- legal-move input is discarded by `drop_legal_moves`
-- Kadoka evaluates every empty square without asking whether it is legal
-- the evaluator is coherent, but it is not a normal Othello engine evaluator
-- candidate selection is randomized from the evaluator scores
-- the same board does not always produce the same move
-- Kadoka remembers only the most recent 1-2 placement attempts
-- memory stores the attempted square and the board hash seen before the attempt
-- if Kadoka is called again with the same board hash, it infers that the previous attempt was rejected
-- rejected recent squares receive a very strong retry penalty
-- every new attempt overwrites short-term memory, including illegal attempts
-- forgotten attempts may later be retried
+- Coreからlegal-move listを受け取らない。
+- Kadokaは合法性を知らず、全empty squareを候補として見る。
+- evaluator自体は一貫しているが通常Othello engine evaluatorではない。
+- evaluator scoreへweighted randomizerをかける。
+- 同じboardでも毎回同じmoveとは限らない。
+- 直近1〜2回程度のplacement attemptだけ覚える。
+- memoryはattempt squareとattempt前board hashを持つ。
+- 同じboard hashで再度呼ばれると、直前attemptがrejectされたと推定する。
+- reject推定されたrecent squareへ強いretry penalty。
+- illegal attemptも新しいattemptとして短期memoryを上書きする。
+- 忘れた場所へ後で再挑戦することはある。
 
 ## Obake-style evaluator
 
-The evaluator does not use the supplied legal move list and does not deliberately implement normal strategic Othello knowledge such as opening books, corner/X/C tables, parity, mobility search, or exact legal-move filtering.
+通常戦略知識を意図的に持たない。
 
-Instead it judges whether an empty square *looks like a meaningful place to put a stone* from the visible local stone pattern.
+含めない:
 
-Current signals include:
+- opening book
+- corner/X/C table
+- parity strategy
+- mobility search
+- exact legal-move filtering
 
-- number of occupied neighboring squares
-- penalty for isolated/open surroundings
-- whether both black and white stones touch the square
-- local color transitions along rays
-- line/bracket interest: a same-color run terminating in the opposite color
+代わりに、見えている局所石配置から「置きたそうな場所」を評価する。
+
+現在signal:
+
+- occupied neighbor数
+- isolated/open surroundings penalty
+- black/white両色との接触
+- ray上のlocal color transition
+- line/bracket interest
 - local density
-- a small early-game center tendency
+- early-gameの小さいcenter tendency
 
-The line/bracket signal is deliberately the strongest feature. This means Kadoka often prefers squares that would interact with or flip a meaningful run of stones for one of the two colors, even though Kadoka does not know whether that square is legal for its own side. If the game rejects the attempt, short-term memory makes an immediate retry unlikely.
+line/bracket signalを強めにすることで、合法性は理解しないまま「石列に関係がありそうな場所」を好む。
 
-This produces the intended character: the placement-evaluation function itself is sensible, but Kadoka does not understand the legal-move set.
+Gameがrejectすると短期memoryで即retryしにくくなる。
 
-## Expected play style
+## 強さの扱い
 
-Kadoka should be clearly stronger than uniform random play because it strongly prefers locally active squares and bracket-like structures instead of arbitrary empty cells. It is intentionally not a strategic engine and should not be expected to play like a dan-level or search-based AI.
+uniform randomより局所的に意味のある場所を好むため完全randomよりは強くなり得る。
 
-The target character strength is roughly an average casual player / beginner-to-intermediate feel after illegal retries are filtered by the game. Actual strength must be measured by league games rather than assumed from the heuristic alone.
+ただし戦略engineとしてdan-level/search AIのように振る舞わせない。
 
-## Dataset-generation performance
+実strengthはheuristicから断定せずAI Leagueで測定する。
 
-Kadoka is implemented as a native C++ engine because character games may be used to generate many training positions.
+## Dataset generation performance
 
-The hot `think()` path:
+native C++ engine。
 
-- does not serialize JSON
-- does not launch a process
-- does not allocate a candidate vector
-- uses a fixed `std::array` for up to 10x10 = 100 cells
-- does not build diagnostics
-- does not receive/copy legal moves after the adapter removes them
-- computes the board empty count only once per inference
-- keeps only a two-entry fixed-size attempt history
+hot `think()` path:
 
-`inspect()` intentionally performs additional allocations because it is a development/analysis path and returns all candidate values/policies plus diagnostics.
+- JSON serializeしない
+- process起動しない
+- candidate vectorをallocateしない
+- 10x10=100 cellまでfixed `std::array`
+- diagnosticsを構築しない
+- Coreからlegal move listを受け取らない
+- empty countは1 inferenceで1回
+- attempt historyは最大2 entry fixed-size
 
-For production self-play Dataset generation, use `think()` through the normal game/headless path.
+`inspect()` はanalysis pathなのでcandidate/diagnostics用allocationを許可する。
+
+大量self-playでは通常Game/Headlessの `think()` pathを使う。
