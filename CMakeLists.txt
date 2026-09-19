@@ -191,7 +191,7 @@ file(GENERATE
 
 file(GENERATE
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_manifest.json"
-    CONTENT "{\n  \"id\": \"kadoka.sample.evaluator_ai\",\n  \"name\": \"Kadoka Evaluator AI Sample\",\n  \"version\": \"0.1.0\",\n  \"protocol_version\": 1,\n  \"board_sizes\": [6, 8, 10],\n  \"interface\": \"native\",\n  \"adapter\": \"pass_through\",\n  \"entry\": \"builtin:kadoka.evaluator_ai\",\n  \"model\": \"evaluator_ai_model.json\",\n  \"capabilities\": [\"move\", \"inspection\"]\n}\n"
+    CONTENT "{\n  \"id\": \"kadoka.sample.evaluator_ai\",\n  \"name\": \"Kadoka Evaluator AI Sample\",\n  \"version\": \"0.1.0\",\n  \"protocol_version\": 1,\n  \"board_sizes\": [6, 8, 10],\n  \"interface\": \"native\",\n  \"entry\": \"builtin:kadoka.evaluator_ai\",\n  \"model\": \"evaluator_ai_model.json\",\n  \"capabilities\": [\"move\", \"inspection\"]\n}\n"
 )
 
 include(CTest)
