@@ -8,12 +8,15 @@ This file is a compact index of what is implemented now. It is not a replacement
 
 - Variable-size board implementation supporting 6x6 / 8x8 / 10x10.
 - Rules, legal move generation, game state and headless execution.
-- Common AI input/output contract and adapters.
+- Common AI input/output contract and adapters exist, but parts of the current implementation still expose legacy legal-move-enriched/native request paths that must be migrated to the canonical JSON state contract.
 - AI package manifest loading.
 - Runtime and Creator Support are separate CMake targets.
 - `KADOKA_BUILD_AI_CREATOR=OFF` provides a Runtime-only CMake configuration; Headless/core tests build without Creator Support.
 - Headless execution links Runtime only.
 - Canonical state changes remain owned by `Game` / rules; AI output is non-authoritative until applied successfully.
+- Target Core/API contract is canonical JSON carrying board state, side to move and time only.
+- Illegal moves must leave board/turn unchanged and be surfaced as an invalid-move event.
+- Legal-move annotations and compressed/binary training formats belong above the Core API boundary.
 
 ### Model / Package
 
@@ -71,6 +74,9 @@ This file is a compact index of what is implemented now. It is not a replacement
 - Sibling-project cross-adoption policy is documented in `doc/sibling-project-alignment.md`.
 
 ## Open / Pending Work
+
+- Migrate legacy AI/external protocol paths that currently pass legal-move lists or non-JSON request formats so implementation matches the canonical JSON Core/API contract.
+- Add/standardize invalid-move event plumbing where current retry behavior is implemented without the explicit event contract.
 
 - Connect a production AI model that actually consumes `native_in_process` Script Evaluator assets during Headless/Creator inference; the Runtime evaluator path and smoke module exist, but no current character AI requires this asset yet.
 - Complete comparative performance measurements for `python_process` / `native_process` / `native_in_process` under identical inputs.
