@@ -39,7 +39,8 @@ DatasetEntry make_entry(
     return entry;
 }
 
-bool throws_invalid_argument(const auto& callable) {
+template <typename Callable>
+bool throws_invalid_argument(const Callable& callable) {
     try {
         callable();
     } catch (const std::invalid_argument&) {
