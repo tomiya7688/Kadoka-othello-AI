@@ -1,46 +1,68 @@
-# Sibling Project Alignment
+# 兄弟プロジェクト連携方針
 
-Kadoka Othello AI, Kadoka Shougi AI and Kadoka Tetris AI are sibling projects. They should reuse proven development methods without forcing game-specific implementation details into a shared lowest-common-denominator design.
+Kadoka Othello AI / Kadoka Shougi AI / Kadoka Tetris AIは兄弟プロジェクト。
 
-Sibling repositories:
+ゲーム固有実装を最低共通分母へ押し込まず、実証済みの開発手法・境界・AI研究基盤を相互利用する。
 
 - `tomiya7688/Kadoka-othello-AI`
 - `tomiya7688/Kadoka-shougi-ai`
 - `tomiya7688/kadoka_tetris_ai`
 
-## Shared engineering invariants
+## 文書言語
 
-### Authoritative core
+Othello側の仕様・設計・運用文書は**日本語を正本**とする。
 
-AI output is a proposal, not authoritative game state.
+兄弟から英語文書・実装方針を取り込む場合も、Othello側へ採用した仕様は日本語正本へ記録する。
 
-The game/rules core validates the proposal and owns the canonical state transition. Character AIs may intentionally propose poor or illegal actions, but they must never bypass rule validation.
+詳細: `doc/document-language-policy.md`
 
-### Runtime stays small
+## 共通Invariant
 
-Match-time/runtime code contains only work needed to execute a game or inference.
+### Authoritative Core
 
-Training, model creation, conversion, rich analysis, reports and large dataset processing belong to Creator/tooling layers. Runtime must not depend upward on them.
+AI outputはproposalでありauthoritative stateではない。
+
+Game/rules Coreがproposalを検証し、canonical state transitionを所有する。
+
+character AIが意図的に弱い/illegal actionを提案してもrule validationを迂回しない。
+
+### Runtimeを小さく保つ
+
+match-time Runtimeにはgame/inference実行に必要なものだけ置く。
+
+training、model creation、conversion、rich analysis、report、大規模Dataset processingはCreator/tooling。
+
+Runtimeから上位toolingへ依存しない。
 
 ### Correctness before strength
 
-Rule correctness and deterministic reproduction take priority over search or model strength. A faster/stronger AI is not useful if it can corrupt canonical game state or cannot be reproduced for debugging.
+search/model strengthよりrule correctnessとdeterministic reproductionを先に守る。
 
-### Deterministic seams
+canonical stateを壊す、またはdebug再現できない高速AIを成功とみなさない。
 
-Random behavior should accept an explicit seed when practical. Benchmarks and AI comparisons should use fixed inputs/seeds and bounded runtimes.
+### Deterministic seam
+
+random behaviorは可能な限りexplicit seedを受ける。
+
+benchmark/AI比較はfixed input/seed + bounded runtimeを使う。
 
 ### Semantic action boundary
 
-Humans and AIs should ultimately reach the same authoritative game-action validation path. UI/protocol adapters translate input; they do not become a second rules engine.
+human/AIはいずれも最終的に同じauthoritative game-action validationへ到達する。
+
+UI/protocol transportを第2 rules engineにしない。
 
 ### Hot-path flexibility
 
-Responsibility separation is the default, but move generation, search, evaluation, rollout and other measured hot paths may use localized optimizations when abstraction overhead is meaningful. Performance exceptions must not break layer direction.
+責務分離がdefault。
 
-## Shared AI backend vocabulary
+ただしmove generation、search、evaluation、rollout等でabstraction overheadが実測上問題なら局所最適化を許可する。
 
-The sibling projects use the same conceptual execution-backend names even though their game-state/action types are different:
+performance exceptionでもlayer dependency directionは壊さない。
+
+## 共通AI backend vocabulary
+
+概念名を可能な範囲で共有する。
 
 - `native`
 - `dynamic_library`
@@ -48,73 +70,81 @@ The sibling projects use the same conceptual execution-backend names even though
 - `script`
 - `network`
 
-The backend only proposes an action/result. The authoritative game core still validates and applies it.
+game state/action typeは各ゲーム固有。
 
-Othello currently exposes `python` as a package-interface compatibility name for a Python script/process path. It maps conceptually to the shared `script` category; existing manifests do not need to be rewritten immediately.
+backendはaction/resultをproposalし、authoritative Game Coreが適用する。
 
-External/process/script transports must stay outside Core. High-throughput paths should prefer persistent sessions or in-process/native execution rather than per-move process startup.
+Othelloのpackage interface `python` は互換名で、概念上はshared `script` category。
 
-## Methods adopted from siblings
+external/process/script transportをCoreへ入れない。
 
-From Kadoka Shougi AI:
+high-throughput pathはper-move process startよりpersistent / in-process / nativeを優先する。
+
+## 兄弟から採用したもの
+
+### Kadoka Shougi AI
 
 - correctness-before-strength
-- engine result is non-authoritative until core validation
-- C++ `.clang-format` / `.clang-tidy` baseline
-- narrow engine/runtime/core dependency direction
-- common `AIBackend` runner vocabulary for native/process/script/network adapters
+- engine resultはCore validationまでnon-authoritative
+- C++ `.clang-format` / `.clang-tidy`
+- narrow engine/runtime/core dependency
+- native/process/script/network等のbackend vocabulary
+- BoardState / GameAux分離型Game Record
 
-From Kadoka Tetris AI:
+### Kadoka Tetris AI
 
-- deterministic seed/input discipline
-- headless-first tests
-- source CI and Windows build-artifact validation as separate evidence
-- one-command build expectation
-- do not claim GUI/artifact verification that was not actually performed
+- deterministic seed/input
+- Headless-first test
+- source CIとWindows artifact validationを別evidenceとする
+- one-command build
+- 実施していないGUI/artifact検証を成功扱いしない
 
-From Kadoka Othello AI:
+### Kadoka Othello AI
 
-- Runtime / Creator separation
-- context-reduction entrypoint and task routing
-- compact mechanically verifiable rule checker
-- model/package assets separate from execution tooling
+- Runtime / Creator分離
+- context reduction / task routing
+- compact mechanical rule checker
+- model/package assetとexecution toolingの分離
+- canonical JSON stateとnative typed hot pathの意味論統一
 
-## Cross-project adoption rule
+## Cross-project adoption
 
-Before adding a new project-wide workflow, CI pattern, checker, model/package convention or major runtime boundary, briefly inspect the sibling implementations first.
+project-wide workflow、CI、checker、model/package convention、major runtime boundaryを追加/変更する前に兄弟実装を短く確認する。
 
-Adopt a sibling technique when:
+採用条件:
 
-1. the same problem exists here;
-2. it preserves this game's semantics and performance needs;
-3. maintenance cost is reasonable;
-4. it can be validated locally in this repository.
+1. 同じ問題が存在する。
+2. このゲームのsemantics/performanceを維持できる。
+3. maintenance costが妥当。
+4. このrepositoryでlocal validationできる。
 
-Do not copy blindly. Language-specific or game-specific details remain local.
+language/game-specific detailを機械的にcopyしない。
 
 ## CI baseline
 
-The common direction is:
-
 ```text
-static/policy checks
-  -> source build / unit tests
-  -> deterministic or headless smoke when relevant
-  -> platform/artifact build when distribution is affected
+static / policy check
+  -> source build / unit test
+  -> deterministic / Headless smoke
+  -> distribution影響時はplatform/artifact build
 ```
 
-Othello currently uses Linux CMake build/test CI and Windows build-artifact CI. A Windows artifact is a developer build until a real portable distribution boundary is explicitly defined and smoke-tested.
+OthelloはLinux CMake build/testとWindows developer artifact CIを持つ。
+
+portable distribution境界を定義・smoke testするまではWindows artifactを正式distributionと呼ばない。
 
 ## Review trigger
 
-Revisit sibling repositories when changing any of these:
+次を変更するとき兄弟repositoryを再確認する。
 
-- CI/build/release workflow
-- AI/common engine protocol
-- Runtime/Creator or runtime/tooling boundary
-- deterministic benchmark methodology
+- CI/build/release
+- common AI/engine protocol
+- Runtime/Creator、runtime/tooling boundary
+- deterministic benchmark method
 - package/model format
 - dependency checker / coding-policy automation
 - distribution/artifact validation
+- Dataset / provenance / Champion-Candidate等の共通研究基盤
+- 文書運用のようなproject-wide policy
 
-The goal is shared learning, not forced identical code.
+目標はshared learningであり、実装を強制的に同一化することではない。
