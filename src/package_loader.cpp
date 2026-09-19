@@ -15,12 +15,6 @@
 namespace kadoka::othello {
 namespace {
 
-std::unique_ptr<IAIAdapter> make_adapter(const std::string& id) {
-    if (id == "pass_through") return std::make_unique<PassThroughAdapter>();
-    if (id == "drop_legal_moves") return std::make_unique<DropLegalMovesAdapter>();
-    throw std::invalid_argument("unknown AI adapter: " + id);
-}
-
 std::string resolve_model_path(const AIPackageManifest& manifest) {
     if (manifest.model.empty()) return {};
     namespace fs = std::filesystem;
@@ -80,11 +74,11 @@ public:
 
     std::string id() const override { return manifest_.id; }
 
-    AIOutput think(const AdaptedAIInput& input) override {
+    AIOutput think(const AIInput& input) override {
         return session_.inspect(input).output;
     }
 
-    AIInspection inspect(const AdaptedAIInput& input) override {
+    AIInspection inspect(const AIInput& input) override {
         return session_.inspect(input);
     }
 
@@ -122,11 +116,11 @@ public:
 
     std::string id() const override { return manifest_.id; }
 
-    AIOutput think(const AdaptedAIInput& input) override {
+    AIOutput think(const AIInput& input) override {
         return inspect(input).output;
     }
 
-    AIInspection inspect(const AdaptedAIInput& input) override {
+    AIInspection inspect(const AIInput& input) override {
         if (input.board == nullptr) throw std::invalid_argument("external AI requires board input");
 
         namespace fs = std::filesystem;
@@ -138,20 +132,7 @@ public:
         {
             std::ofstream request(request_path);
             if (!request) throw std::runtime_error("failed to create external AI request file");
-            request << "KADOKA_AI_PROTOCOL 1\n";
-            request << "size " << input.board->size() << '\n';
-            for (std::size_t row = 0; row < input.board->size(); ++row) {
-                for (std::size_t col = 0; col < input.board->size(); ++col) {
-                    const Cell cell = input.board->at({row, col});
-                    request << (cell == Cell::Black ? 'B' : cell == Cell::White ? 'W' : '.');
-                }
-                request << '\n';
-            }
-            const std::size_t legal_count = input.legal_moves == nullptr ? 0 : input.legal_moves->size();
-            request << "legal_count " << legal_count << '\n';
-            if (input.legal_moves != nullptr) {
-                for (const auto move : *input.legal_moves) request << move.row << ' ' << move.col << '\n';
-            }
+            request << core_state_to_json(input) << '\n';
         }
 
         const fs::path entry = resolve_entry_path(manifest_);
@@ -231,8 +212,6 @@ LoadedAIPackage load_ai_package(
     std::uint64_t seed) {
     LoadedAIPackage loaded;
     loaded.manifest = manifest;
-    loaded.adapter = make_adapter(manifest.adapter);
-
     switch (manifest.interface_type) {
         case AIPackageInterface::Native:
             loaded.engine = make_native_engine(manifest, seed);
