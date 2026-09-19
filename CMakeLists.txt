@@ -106,6 +106,7 @@ if(KADOKA_BUILD_AI_CREATOR)
         src/package_import.cpp
         src/model_data.cpp
         src/conversion.cpp
+        src/dataset_pool.cpp
     )
 
     target_include_directories(kadoka_othello_creator_support
@@ -347,6 +348,20 @@ if(BUILD_TESTING)
             COMMAND kadoka_othello_ai_creator
                 analyze
                 "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_maru/manifest.json"
+        )
+
+        add_executable(kadoka_dataset_pool_tests
+            src/tests/dataset_pool_tests.cpp
+        )
+
+        target_link_libraries(kadoka_dataset_pool_tests
+            PRIVATE
+                kadoka_othello_creator_support
+        )
+
+        add_test(
+            NAME kadoka_dataset_pool_tests
+            COMMAND kadoka_dataset_pool_tests
         )
     endif()
 
