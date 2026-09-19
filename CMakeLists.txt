@@ -29,6 +29,7 @@ add_library(kadoka_othello_runtime
     src/game.cpp
     src/state.cpp
     src/core_state.cpp
+    src/game_record.cpp
     src/ai.cpp
     src/model_descriptor.cpp
     src/script_evaluator.cpp
@@ -209,6 +210,20 @@ if(BUILD_TESTING)
     add_test(
         NAME kadoka_othello_core_tests
         COMMAND kadoka_othello_core_tests
+    )
+
+    add_executable(kadoka_game_record_tests
+        src/tests/game_record_tests.cpp
+    )
+
+    target_link_libraries(kadoka_game_record_tests
+        PRIVATE
+            kadoka_othello_runtime
+    )
+
+    add_test(
+        NAME kadoka_game_record_tests
+        COMMAND kadoka_game_record_tests
     )
 
     add_executable(kadoka_othello_league_tests
