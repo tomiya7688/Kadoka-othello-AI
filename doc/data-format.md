@@ -67,3 +67,16 @@ JSONがexchange上の正。
 fixed-length binary、compressed record、tensor、feature vectorはAI Creator / Dataset Toolingがtraining/performance用途に生成してよい。
 
 それらを第2のGame Core APIにしない。
+
+
+## Dataset Pool / Recipe
+
+Game Recordや外部データを学習素材として管理する段階では `kadoka.dataset_entry.v1` Registryへ登録する。
+
+各AIは `kadoka.dataset_recipe.v1` により使用Datasetとratioを個別指定する。
+
+training / validation / benchmark / league_evaluationはusage fieldで分離し、Recipe解決時に異なるusageの混入をrejectする。
+
+複数Datasetに同じ `game_id` が含まれていても、resolved Recipeでは1 gameだけ残す。
+
+詳細: `doc/dataset-pool.md`
