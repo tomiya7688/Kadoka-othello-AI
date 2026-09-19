@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cmath>
 #include <iomanip>
 #include <istream>
@@ -493,6 +494,7 @@ DatasetEntry derive_dataset(
     std::string dataset_id,
     std::string derivation_tag,
     DatasetUsage usage,
+    std::string created_at,
     std::vector<std::string> game_ids) {
     validate_entry(parent);
     if (derivation_tag.empty()) {
@@ -514,6 +516,7 @@ DatasetEntry derive_dataset(
     derived.provenance = parent.provenance;
     derived.provenance.source_type = "derived";
     derived.provenance.parent_dataset = parent.dataset_id;
+    derived.provenance.created_at = std::move(created_at);
     derived.provenance.game_ids = std::move(game_ids);
     derived.tags = parent.tags;
     if (std::find(
