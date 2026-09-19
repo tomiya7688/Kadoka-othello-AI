@@ -1,12 +1,14 @@
 # Kadoka Model Record v1
 
-## Purpose
+## 目的
 
-`ModelRecord` is the internal neutral record used by AI development tools and dataset converters.
+`ModelRecord` はAI development tool / dataset converter用のinternal neutral record。
 
-The game itself only consumes the selected move. AI development tools may consume additional inference information.
+Game Coreのstate contractではない。
 
-## Core fields
+## Fields
+
+現在のrecordは次を保持できる。
 
 - `format_version`
 - `model_id`
@@ -20,31 +22,40 @@ The game itself only consumes the selected move. AI development tools may consum
 - `candidates`
 - `diagnostics`
 
+`legal_moves` はCreator/Dataset側でboardから派生したanalysis fieldであり、Core API入力ではない。
+
 ## Board encoding
 
-Current JSONL codec uses integers:
+現在JSONL codecはintegerを使用する。
 
 - `0`: empty
 - `1`: black
 - `2`: white
 
-The internal representation is not tied to JSON.
+internal representationをJSONに固定しない。
 
-## Candidates
+## Candidate
 
-Optional candidate records can contain:
+optional candidate:
 
 - move
 - value
 - policy
 
-Future formats may extend this with search visits, uncertainty, confidence, Monte Carlo statistics, mobility values, parity information, or model-specific fields.
+将来拡張候補:
+
+- search visits
+- uncertainty / confidence
+- Monte Carlo statistics
+- mobility
+- parity
+- model-specific field
 
 ## Diagnostics
 
-`diagnostics` is a string key/value map for arbitrary inference metadata.
+`diagnostics` はarbitrary string key/value map。
 
-Examples:
+例:
 
 ```json
 {
@@ -58,24 +69,22 @@ Examples:
 
 ## Standard codec
 
-The first standard codec is:
-
 `kadoka.jsonl.v1`
 
-One `ModelRecord` is written per line.
+1 `ModelRecord` / 1 line。
 
-## Other formats
+## 他format
 
-The internal record is separated from serialization through `IModelDataCodec`.
+serializationは `IModelDataCodec` でinternal recordから分離する。
 
-Possible future codecs:
+候補:
 
-- CSV
+- CSV/TSV
 - compact binary
 - MessagePack / CBOR
-- NumPy-oriented training data
-- PyTorch tensors
-- external Othello dataset formats
-- legacy Kadoka formats
+- NumPy training data
+- PyTorch tensor
+- external Othello dataset
+- legacy Kadoka format
 
-Converters should normally translate external formats into `ModelRecord`, then write them through the requested codec.
+converterは原則external format -> `ModelRecord` -> requested codecの順で処理する。
