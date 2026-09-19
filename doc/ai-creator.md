@@ -149,3 +149,20 @@ Issueに従って追加する候補:
 - dynamic-library loading
 - per-stage timing
 - Dataset Pool / Relabelとの接続
+
+
+## Dataset Tool
+
+Dataset Pool / RecipeはCreator Support側に置く。
+
+```text
+kadoka_dataset_tool validate <registry.jsonl>
+kadoka_dataset_tool plan <registry.jsonl> <recipe.json>
+kadoka_dataset_tool attach-recipe <metadata.json> <recipe.json> <output.json>
+```
+
+- `validate`: Dataset Registryとparent provenanceを検証
+- `plan`: usage分離・game_id重複排除後の学習planを表示
+- `attach-recipe`: 学習済みmodel metadataへRecipe snapshotを埋め込む
+
+詳細: `doc/dataset-pool.md`
