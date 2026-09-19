@@ -226,6 +226,19 @@ if(BUILD_TESTING)
         COMMAND kadoka_game_record_tests
     )
 
+    add_test(
+        NAME kadoka_game_record_headless_smoke
+        COMMAND kadoka_othello_headless
+            1
+            6
+            -
+            1818
+            -
+            -
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/record_board_state.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/record_game_aux.jsonl"
+    )
+
     add_executable(kadoka_othello_league_tests
         src/tests/league_tests.cpp
     )
