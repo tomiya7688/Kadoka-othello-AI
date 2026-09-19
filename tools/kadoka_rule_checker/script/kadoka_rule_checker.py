@@ -15,6 +15,14 @@ CREATOR_HEADERS = {
 }
 IGNORE_FILE = ".kadoka-check-ignore"
 SOURCE_SUFFIXES = {".cpp", ".cc", ".cxx", ".hpp", ".h"}
+DOCUMENT_AUTHORITY_MARKER = "日本語を正本"
+DOCUMENT_AUTHORITY_FILES = (
+    "README.md",
+    "AI_CONTEXT.md",
+    "AGENTS.md",
+    "doc/document-language-policy.md",
+    "doc/sibling-project-alignment.md",
+)
 
 
 @dataclass(frozen=True)
@@ -107,10 +115,38 @@ def scan_cmake_boundary(root: Path, ignores: list[tuple[str, str, str]]) -> list
     return findings
 
 
+def scan_document_authority(
+    root: Path,
+    ignores: list[tuple[str, str, str]],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for rel in DOCUMENT_AUTHORITY_FILES:
+        path = root / rel
+        if not path.exists():
+            if not ignored(rel, "KAD103", ignores):
+                findings.append(
+                    Finding(rel, 1, "KAD103", "Japanese authoritative-document marker file is missing")
+                )
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        if DOCUMENT_AUTHORITY_MARKER not in text and not ignored(rel, "KAD103", ignores):
+            findings.append(
+                Finding(
+                    rel,
+                    1,
+                    "KAD103",
+                    f"documentation entrypoint must declare '{DOCUMENT_AUTHORITY_MARKER}'",
+                )
+            )
+    return findings
+
+
 def scan(root: Path) -> list[Finding]:
     ignores = load_ignores(root)
     findings = scan_runtime_dependencies(root, ignores)
     findings.extend(scan_cmake_boundary(root, ignores))
+    findings.extend(scan_document_authority(root, ignores))
     return sorted(findings, key=lambda item: (item.path, item.line, item.code))
 
 
