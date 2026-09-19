@@ -77,6 +77,10 @@ void write_game_record_jsonl(
     std::istream& board_state_input,
     std::istream& game_aux_input);
 
+[[nodiscard]] std::vector<GameRecord> read_game_records_jsonl(
+    std::istream& board_state_input,
+    std::istream& game_aux_input);
+
 class GameRecordRecorder {
 public:
     explicit GameRecordRecorder(
