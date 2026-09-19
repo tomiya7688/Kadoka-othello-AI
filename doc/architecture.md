@@ -79,7 +79,6 @@ Runtimeに含めてよいもの:
 
 - package/model descriptor loader
 - model asset loader
-- AI adapter
 - native inference
 - modelが推論時に必須とするscript evaluator
 - character memory
@@ -100,36 +99,36 @@ Creator側に限定するもの:
 
 ## State API
 
-`GameSnapshot` はGUIや外部ツールへ現在局面を渡すための軽量データ構造。
-盤面、手番、合法手、履歴、終局結果を保持する。
+The authoritative exchange contract is `kadoka.core_state.v1` JSON.
 
-Coreは通信方式そのものを持たず、HTTPやIPC等は上位層で実装する。
+It contains only:
+
+- board
+- side to move
+- time information
+
+Legal moves, history, result metadata, evaluation and search diagnostics are not Core-state fields.
+
+Native Runtime uses the zero-copy `CoreStateView` corresponding to the same semantics, avoiding JSON serialization on the hot path. External/script transports serialize that view to canonical JSON.
+
+See `doc/core-api.md`.
 
 ## AI Protocol
 
-すべてのAIは論理的に同じ入出力を使用する。
+All AIs receive the same logical state: board + side to move + time.
 
-入力:
+AIs that need legal moves derive them from the state. The old pass-through/drop-legal-moves adapter layer is removed.
 
-- 現在の盤面
-- 合法手一覧
+All AIs return a proposed move. `Game` validates it authoritatively.
 
-出力:
+On an illegal proposal:
 
-- 打つ手
+- board remains unchanged
+- side to move remains unchanged
+- ply remains unchanged
+- `InvalidMove` is emitted through the Core event contract
 
-AI実装そのものは `IAIEngine`、入力変換は `IAIAdapter` として分離する。
-通常AIは `PassThroughAdapter`、合法手を知らないAIは `DropLegalMovesAdapter` を利用できる。
-
-内蔵AIも外部AIもRunnerから見れば `AIPackage` として同じ扱いにする。
-DLL、外部exe、Python、IPC、ネットワークAIはAdapter/Loader側で吸収し、Core Protocolは変更しない。
-
-高速AIでは盤面と合法手をコピーせず参照するnative pathを優先し、JSON等のシリアライズは外部Transport側の責務とする。
-
-通常のゲーム実行は `think()` を使う。
-`inspect()` はCreator/開発用途であり、対局ホットパスで常用しない。
-
-詳細は `doc/ai-protocol.md` を参照。
+Normal game execution uses `think()`. Creator/analysis paths may use `inspect()`.
 
 ## Model Package
 
