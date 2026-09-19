@@ -10,10 +10,8 @@ namespace kadoka::othello {
 struct LoadedAIPackage {
     AIPackageManifest manifest;
     std::unique_ptr<IAIEngine> engine;
-    std::unique_ptr<IAIAdapter> adapter;
-
     [[nodiscard]] AIPackage view() const noexcept {
-        return AIPackage{engine.get(), adapter.get()};
+        return AIPackage{engine.get()};
     }
 };
 
