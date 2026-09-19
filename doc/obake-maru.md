@@ -5,46 +5,52 @@
 ```text
 src/packages/obake_maru/
   manifest.json
+  metadata.json
   model.json
+  evaluator.json
+  behavior.json
 ```
 
-Maru uses the same AI Creator native package format as Obake Kadoka.
+Obake Kadokaと同じnative package contractを使う。
 
 ## Character behavior
 
-- legal-move input is discarded by `drop_legal_moves`
-- Maru does not know legal moves
-- Maru evaluates all empty squares with a very small local heuristic
-- Maru strongly randomizes among candidates
-- Maru remembers only the immediately previous placement attempt
-- if the same board is shown again, Maru infers that the previous attempt was rejected
-- that single rejected square is strongly discouraged on the next attempt
-- after Maru tries another square, the older mistake is forgotten
+- Coreからlegal-move listを受け取らない。
+- Maruは合法手を知らない。
+- 全empty squareを小さいlocal heuristicで評価する。
+- candidate間に強いrandomnessを入れる。
+- 覚えるのは直前placement attemptだけ。
+- 同じboardを再度見ると直前attemptがrejectされたと推定する。
+- その1 squareだけ次attemptで強く避ける。
+- 別squareを試すと古い失敗は忘れる。
 
-This matches the intended behavior: after being told a square is bad, Maru can effectively react as if saying `ここだめなのだ？` and try somewhere else, but it does not retain older mistakes.
+つまり「ここだめなのだ？」と別の場所へ行く程度で、古い失敗を長く覚えない。
 
-## Evaluation style
+## Evaluation
 
-Maru's evaluator is deliberately much simpler than Kadoka's.
+Kadokaよりさらに単純。
 
-It prefers:
+好む傾向:
 
-- squares close to existing stones
-- locally dense / busy-looking areas
-- squares touching both colors a little
-- a mild center tendency
+- existing stoneに近い
+- local densityが高い
+- 両色に少し触れる
+- 弱いcenter tendency
 
-It does not inspect bracket structures as deeply as Kadoka and uses a high randomizer temperature plus a large exploration floor. The intended result is visibly non-uniform play that is still weak and clumsy.
+Kadokaほどbracket structureを見ず、randomizer temperatureとexploration floorを大きくする。
 
-## Strength target
+non-uniformだが弱く、かなり雑なplayを狙う。
 
-Maru should usually be weaker than Kadoka and only modestly stronger than uniform random after illegal attempts are filtered by the game. Exact strength must be measured by league games.
+## Strength
 
-## Creator usage
+原則Kadokaより弱くする。
+
+illegal retryをGameが処理した後でもuniform randomより少しだけ特徴がある程度を想定するが、strengthはLeagueで測る。
+
+## Creator
 
 ```bat
 build\Release\kadoka_othello_ai_creator.exe analyze ^
   src\packages\obake_maru\manifest.json ^
-  samples\position_8x8.txt ^
-  obake_maru.jsonl
+  samples\position_8x8.txt
 ```
