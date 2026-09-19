@@ -2,65 +2,67 @@
 
 ## Purpose
 
-All AI implementations use the same logical input and output contract.
+All AI implementations use the same logical state/action boundary.
 The game core does not depend on AI implementation details.
 
-## Input
+## Canonical input
 
-Every AI request is created from:
+The canonical Core/API exchange format is JSON.
 
-- current board
-- legal move list
+An AI decision request contains only the game-observable state required by the project contract:
 
-The runtime representation is `AIInput`.
-The board and legal move list are passed by reference/pointer so the normal native path does not copy them.
+- board state
+- side to move
+- time information
+
+Legal moves are not part of the canonical AI input contract.
+
+An AI that needs legal moves derives them from the received board state, or uses Runtime-internal rule helpers. This keeps normal AIs, experimental AIs and character AIs on the same state boundary.
 
 ## Output
 
-Every AI returns one move through `AIOutput`.
+Every AI proposes one move.
 
-The game core is always the authority for legality. An AI output is never trusted as legal merely because a legal move list was supplied.
-
-## Adapter layer
-
-Adapters transform protocol input before it reaches an AI implementation.
-
-### PassThroughAdapter
-
-Passes both board and legal moves to the AI.
-This is the default adapter for normal AI implementations.
-
-### DropLegalMovesAdapter
-
-Passes the board but removes the legal move list.
-This is intended for AI implementations such as Obake Kadoka and Obake Maru that do not know legal moves.
-
-The AI implementation itself therefore does not need special code to discard legal moves.
+The game core is always authoritative. An AI proposal does not change the game state until the core validates and applies it.
 
 ## Invalid moves
 
-The game core remains responsible for validating the returned move.
-The headless runner retries the same turn when an AI returns an invalid move.
-Only successful legal moves are added to normal game history and dataset snapshots.
+When a proposed move is illegal:
 
-`HeadlessConfig::max_invalid_attempts_per_turn` prevents an AI from creating an infinite retry loop.
+- canonical board state is unchanged;
+- side to move is unchanged;
+- an invalid-move event is emitted.
 
-GUI implementations may separately visualize invalid attempts, character reactions, warnings, or other presentation effects.
+The caller may react to that event by retrying the same AI turn, showing a GUI effect, updating character-local memory, logging diagnostics, or terminating after a configured retry limit.
+
+Only successfully applied legal moves belong to normal game history / game-result datasets.
+
+## Runtime representation
+
+JSON is the canonical interchange format, not a requirement to serialize and parse text inside every native hot-path call.
+
+Runtime may use a typed/native view equivalent to the canonical JSON state after the boundary has been decoded. Native implementations may also use bitboards, SIMD, lookup tables, fixed-size buffers, multithreading, or other implementation-specific structures internally.
+
+Those are implementation details and must not redefine the Core/API contract.
+
+## Adapter layer
+
+Adapters may translate transports, legacy package formats, or model-specific representations.
+
+They must not invent a second authoritative rules layer.
+
+Legacy adapters that inject or remove legal-move lists are compatibility mechanisms only; legal moves are not part of the canonical Core/API input.
 
 ## AI package runtime
 
-`AIPackage` currently binds:
+`AIPackage` binds an AI implementation to the Runtime-facing package/adapter layer.
 
-- an `IAIEngine`
-- an `IAIAdapter`
+The runner does not need to know whether the implementation is built in, loaded from a library, proxied to another process, or connected through another transport.
 
-The runner only knows this pair and does not need to know whether the AI is built in, loaded from a library, proxied to another process, or connected through another adapter.
-
-Future loaders can therefore support native libraries, executables, Python, network services, or legacy AI without changing the game core protocol.
+External process, script, dynamic-library and network transports all preserve the same logical state/action contract.
 
 ## Performance rule
 
-Fast native AIs should remain on the zero-copy native path where possible.
-Expensive serialization such as JSON should be treated as an adapter/transport concern, not as the internal core interface.
+The canonical API is JSON, while high-throughput native execution may avoid repeated JSON serialization after decoding the state boundary.
 
-This allows optimized AI implementations to use bitboards, SIMD, lookup tables, fixed-size buffers, multithreading, or other implementation-specific techniques without changing the protocol.
+Dataset compression, binary encodings and training tensors belong to AI Creator / Dataset Tooling. They are not alternate Core API formats.
