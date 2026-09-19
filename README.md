@@ -71,6 +71,7 @@ See `doc/sibling-project-alignment.md`.
 ## Documents
 
 - `doc/architecture.md` - responsibility boundaries and source layout
+- `doc/core-api.md` - canonical JSON Core state and invalid-move event contract
 - `doc/current-state.md` - compact current implementation state
 - `doc/context-routing.md` - context and validation routing map
 - `doc/sibling-project-alignment.md` - cross-project engineering reuse policy
@@ -79,6 +80,6 @@ See `doc/sibling-project-alignment.md`.
 - `doc/model-format.md` - root model descriptor and asset structure
 - `doc/script-evaluator-runtime.md` - evaluator runtimes and native in-process ABI
 - `doc/build.md` - build and runner usage
-- `doc/data-format.md` - GameSnapshot / JSON Lines format
+- `doc/data-format.md` - canonical state / transitional JSON Lines output
 
 All C++ source and headers are kept under `src/`.
