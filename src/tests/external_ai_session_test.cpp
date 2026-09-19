@@ -1,6 +1,5 @@
 #include "kadoka_othello/external_ai_session.hpp"
 
-#include <cassert>
 #include <chrono>
 #include <stdexcept>
 #include <string>
@@ -9,6 +8,8 @@
 
 #include "kadoka_othello/game.hpp"
 #include "kadoka_othello/state.hpp"
+
+#include "test_support.hpp"
 
 using namespace kadoka::othello;
 
@@ -46,7 +47,7 @@ AIInput input_for(const Game& game) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    assert(argc >= 2);
+    KADOKA_REQUIRE(argc >= 2);
     const std::string helper = argv[1];
 
     {
@@ -56,28 +57,28 @@ int main(int argc, char** argv) {
 
         const AIInspection first = session.inspect(input_for(game));
         const AIInspection second = session.inspect(input_for(game));
-        assert(is_legal(first.output.move, legal_moves));
-        assert(is_legal(second.output.move, legal_moves));
-        assert(diagnostic_value(first, "request_count") == "1");
-        assert(diagnostic_value(second, "request_count") == "2");
+        KADOKA_REQUIRE(is_legal(first.output.move, legal_moves));
+        KADOKA_REQUIRE(is_legal(second.output.move, legal_moves));
+        KADOKA_REQUIRE(diagnostic_value(first, "request_count") == "1");
+        KADOKA_REQUIRE(diagnostic_value(second, "request_count") == "2");
     }
 
     {
         Game game(8);
         std::size_t invalid_events = 0;
-        game.add_event_listener([&invalid_events](const GameEvent& event) {
+        static_cast<void>(game.add_event_listener([&invalid_events](const GameEvent& event) {
             if (event.type == GameEventType::InvalidMove) ++invalid_events;
-        });
+        }));
         ExternalAISession session(make_config(helper, "illegal"));
 
         const std::string before = snapshot_to_json(make_snapshot(game));
         const std::size_t ply_before = game.ply();
         const AIInspection result = session.inspect(input_for(game));
-        assert(!game.play(result.output.move));
+        KADOKA_REQUIRE(!game.play(result.output.move));
         const std::string after = snapshot_to_json(make_snapshot(game));
-        assert(before == after);
-        assert(game.ply() == ply_before);
-        assert(invalid_events == 1);
+        KADOKA_REQUIRE(before == after);
+        KADOKA_REQUIRE(game.ply() == ply_before);
+        KADOKA_REQUIRE(invalid_events == 1);
     }
 
     for (const std::string mode : {"malformed", "exit", "timeout"}) {
@@ -93,7 +94,7 @@ int main(int argc, char** argv) {
         } catch (const std::runtime_error&) {
             failed = true;
         }
-        assert(failed);
+        KADOKA_REQUIRE(failed);
     }
 
     return 0;
