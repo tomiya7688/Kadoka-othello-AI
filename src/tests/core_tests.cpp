@@ -1,8 +1,10 @@
 #include <cassert>
 #include <cstddef>
 #include <sstream>
+#include <string>
 
 #include "kadoka_othello/ai.hpp"
+#include "kadoka_othello/core_state.hpp"
 #include "kadoka_othello/headless.hpp"
 #include "kadoka_othello/obake_kadoka.hpp"
 #include "kadoka_othello/state.hpp"
@@ -36,49 +38,82 @@ void test_apply_move_and_flip() {
     assert(game.board().count(Cell::White) == 1);
     assert(game.current_player() == Player::White);
     assert(game.history().size() == 1);
+    assert(game.ply() == 1);
 }
 
-void test_illegal_move_does_not_advance_turn() {
+void test_illegal_move_event_does_not_advance_state() {
     Game game(8);
+    std::size_t invalid_events = 0;
+    std::size_t event_ply = 999;
+    Player event_actor = Player::White;
+    Position event_move{99, 99};
+
+    game.add_event_listener([&](const GameEvent& event) {
+        if (event.type != GameEventType::InvalidMove) return;
+        ++invalid_events;
+        event_ply = event.ply;
+        event_actor = event.actor;
+        assert(event.action.has_value());
+        event_move = *event.action;
+    });
+
+    const std::string before = snapshot_to_json(make_snapshot(game));
     assert(!game.play({0, 0}));
+    const std::string after = snapshot_to_json(make_snapshot(game));
+
+    assert(before == after);
     assert(game.current_player() == Player::Black);
     assert(game.history().empty());
+    assert(game.ply() == 0);
+    assert(invalid_events == 1);
+    assert(event_ply == 0);
+    assert(event_actor == Player::Black);
+    assert((event_move == Position{0, 0}));
 }
 
-void test_snapshot() {
-    Game game(8);
-    const auto snapshot = make_snapshot(game);
-    assert(snapshot.board_size == 8);
-    assert(snapshot.cells.size() == 64);
-    assert(snapshot.legal_moves.size() == 4);
-    assert(snapshot_to_json(snapshot).find("\"board_size\":8") != std::string::npos);
-}
+void test_core_state_json_round_trip() {
+    for (const std::size_t size : {6U, 8U, 10U}) {
+        Game game(size);
+        CoreTimeState time;
+        time.black_remaining_ms = 300000;
+        time.white_remaining_ms = 299500;
+        time.move_limit_ms = 5000;
 
-void test_ai_adapters() {
-    Game game(8);
-    const auto legal_moves = game.legal_moves();
-    const AIInput input{&game.board(), &legal_moves};
+        const CoreStateView view{&game.board(), game.current_player(), time};
+        const std::string json = core_state_to_json(view);
 
-    PassThroughAdapter pass_through;
-    const auto passed = pass_through.adapt(input);
-    assert(passed.board == &game.board());
-    assert(passed.legal_moves == &legal_moves);
+        assert(json.find("\"format\":\"kadoka.core_state.v1\"") != std::string::npos);
+        assert(json.find("\"side_to_move\":\"black\"") != std::string::npos);
+        assert(json.find("\"legal_moves\"") == std::string::npos);
+        assert(json.find("\"history\"") == std::string::npos);
+        assert(json.find("\"status\"") == std::string::npos);
+        assert(json.find("\"result\"") == std::string::npos);
 
-    DropLegalMovesAdapter drop_legal_moves;
-    const auto dropped = drop_legal_moves.adapt(input);
-    assert(dropped.board == &game.board());
-    assert(dropped.legal_moves == nullptr);
+        const CoreState parsed = parse_core_state_json(json);
+        assert(parsed.board_size == size);
+        assert(parsed.side_to_move == Player::Black);
+        assert(parsed.cells.size() == size * size);
+        assert(parsed.time.black_remaining_ms == 300000);
+        assert(parsed.time.white_remaining_ms == 299500);
+        assert(parsed.time.move_limit_ms == 5000);
+
+        const Board restored = board_from_core_state(parsed);
+        for (std::size_t row = 0; row < size; ++row) {
+            for (std::size_t col = 0; col < size; ++col) {
+                assert(restored.at({row, col}) == game.board().at({row, col}));
+            }
+        }
+    }
 }
 
 void test_random_ai_protocol() {
     Game game(8);
     const auto legal_moves = game.legal_moves();
     RandomAI random_ai(12345);
-    PassThroughAdapter adapter;
 
     const AIOutput output = invoke_ai(
-        AIPackage{&random_ai, &adapter},
-        AIInput{&game.board(), &legal_moves});
+        AIPackage{&random_ai},
+        AIInput{&game.board(), game.current_player(), {}});
 
     bool found = false;
     for (const Position move : legal_moves) {
@@ -92,24 +127,14 @@ void test_random_ai_protocol() {
 
 void test_obake_kadoka_protocol() {
     Game game(8);
-    const auto legal_moves = game.legal_moves();
     ObakeKadokaAI kadoka(12345);
-    DropLegalMovesAdapter adapter;
 
     const AIInspection inspection = inspect_ai(
-        AIPackage{&kadoka, &adapter},
-        AIInput{&game.board(), &legal_moves});
+        AIPackage{&kadoka},
+        AIInput{&game.board(), game.current_player(), {}});
 
     assert(game.board().at(inspection.output.move) == Cell::Empty);
     assert(inspection.candidates.size() == 60);
-
-    bool legal_moves_used_is_false = false;
-    for (const auto& item : inspection.diagnostics) {
-        if (item.key == "legal_moves_used" && item.value == "false") {
-            legal_moves_used_is_false = true;
-        }
-    }
-    assert(legal_moves_used_is_false);
 }
 
 void test_headless_runner() {
@@ -122,7 +147,8 @@ void test_headless_runner() {
     assert(summary.games == 4);
     assert(summary.black_wins + summary.white_wins + summary.draws == 4);
     assert(summary.invalid_move_attempts == 0);
-    assert(!output.str().empty());
+    assert(output.str().find("kadoka.core_state.v1") != std::string::npos);
+    assert(output.str().find("\"legal_moves\"") == std::string::npos);
 }
 
 }  // namespace
@@ -131,9 +157,8 @@ int main() {
     test_initial_board_sizes();
     test_initial_legal_moves();
     test_apply_move_and_flip();
-    test_illegal_move_does_not_advance_turn();
-    test_snapshot();
-    test_ai_adapters();
+    test_illegal_move_event_does_not_advance_state();
+    test_core_state_json_round_trip();
     test_random_ai_protocol();
     test_obake_kadoka_protocol();
     test_headless_runner();
