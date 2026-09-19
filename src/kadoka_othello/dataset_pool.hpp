@@ -93,6 +93,7 @@ private:
     std::string dataset_id,
     std::string derivation_tag,
     DatasetUsage usage,
+    std::string created_at,
     std::vector<std::string> game_ids);
 
 [[nodiscard]] std::string dataset_entry_to_json(const DatasetEntry& entry);
