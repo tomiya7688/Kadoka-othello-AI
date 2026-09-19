@@ -15,7 +15,6 @@ struct AIPackageImportRequest {
     std::string name;
     std::string version{"0.1.0"};
     AIPackageInterface interface_type{AIPackageInterface::ExternalProcess};
-    std::string adapter{"pass_through"};
     std::vector<std::size_t> board_sizes{6, 8, 10};
     bool copy_source{true};
 };
