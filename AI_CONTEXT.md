@@ -1,89 +1,98 @@
 # AI Context
 
-This file is the small entrypoint for AI-assisted work in this repository.
-Do not preload the whole repository, all docs, all Issues, or generated artifacts.
+このファイルは、このリポジトリでAI支援開発を始めるための小さい入口。
+
+リポジトリ全体、全doc、全Issue、generated artifactを最初から読み込まない。
+
+**仕様・設計・運用文書は日本語を正本とする。** 詳細は `doc/document-language-policy.md`。
 
 ## Project
 
 - Name: Kadoka Othello AI
 - Main language: C++17
-- Purpose: Othello core, AI Runtime, AI Creator, model/package tooling, headless self-play
+- Purpose: Othello Core、AI Runtime、AI Creator、model/package tooling、Headless self-play
 
-## Source of Truth
+## 正本
 
+- 文書言語: `doc/document-language-policy.md`
 - Architecture: `doc/architecture.md`
-- Runtime / Creator boundary: `doc/runtime-creator-boundary.md`
-- Coding rules and performance exceptions: `doc/coding-rules.md`
-- Current implementation state: `doc/current-state.md`
-- Sibling-project engineering policy: `doc/sibling-project-alignment.md`
-- Model/package contracts: `doc/model-format.md`, `doc/ai-package.md`
+- Runtime / Creator境界: `doc/runtime-creator-boundary.md`
+- Coding rules / performance exception: `doc/coding-rules.md`
+- 現在実装: `doc/current-state.md`
+- 兄弟プロジェクト方針: `doc/sibling-project-alignment.md`
+- Model/package: `doc/model-format.md`, `doc/ai-package.md`
 - AI protocol: `doc/ai-protocol.md`, `doc/external-ai-protocol.md`
-- Current task: GitHub Issue or explicit user request
-- Source and tests: `src/`, `src/tests/`
+- 現在task: GitHub Issueまたは明示されたuser request
+- Source/tests: `src/`, `src/tests/`
 
-## Start Here
+## 開始順
 
-1. Read the current task or `.codex/next_issue.md` when generated.
-2. Use `doc/context-routing.md` to select the smallest working set.
-3. Read target source and matching tests before broad documentation.
-4. Read detailed docs only when the task needs them.
-5. Stop exploring once Goal / Required / Acceptance and the affected boundary are clear.
+1. 現在task、または生成済みなら `.codex/next_issue.md` を読む。
+2. `doc/context-routing.md` で最小working setを選ぶ。
+3. 詳細文書を広く読む前にtarget sourceとmatching testを読む。
+4. 詳細docはtaskで必要なものだけ読む。
+5. Goal / Required / Acceptanceと影響boundaryが明確になったら探索を止める。
 
-## Important Invariants
+## 重要Invariant
 
-- Correctness comes before engine strength or optimization.
-- Canonical board state belongs to the Othello core/game. AI output is a proposal; `Game::play()` / rules validation remains authoritative.
-- Human/protocol/AI actions must not bypass authoritative rule application.
-- AI Runtime executes models; AI Creator creates, analyzes, converts and tunes them.
-- Runtime must not depend on Creator Support.
-- Normal game execution uses the light `think()` path; rich inspection is opt-in.
-- Random/character AI behavior should accept explicit seeds for reproducible tests and comparisons.
-- Performance-sensitive Runtime code may use documented coding-rule exceptions, but those exceptions must not reverse dependency direction.
-- 6x6 / 8x8 / 10x10 must remain supported unless a task explicitly narrows support.
-- Obake Kadoka / Maru character behavior must not gain conventional Othello knowledge accidentally.
+- 強さ・最適化よりrule correctnessを先に守る。
+- canonical board stateはOthello Core/Gameが所有する。AI outputはproposalであり、`Game::play()` / rules validationがauthority。
+- Human / protocol / AI actionはauthoritative rule applicationを迂回しない。
+- AI Runtimeはmodelを実行し、AI Creatorは作成・解析・変換・調整を行う。
+- RuntimeからCreator Supportへ依存しない。
+- 通常対局は軽量な `think()` pathを使い、rich inspectionは明示時だけ使う。
+- random / character AIは再現可能なtest・比較のためexplicit seedを受け取れるようにする。
+- Runtime hot pathでは性能上の例外を許可できるが、dependency directionは逆転させない。
+- 明示的に対象外としない限り6x6 / 8x8 / 10x10を維持する。
+- Obake Kadoka / Maruへ通常のオセロ知識を意図せず追加しない。
+- Core APIの正は `kadoka.core_state.v1`。board / side-to-move / timeのみで、legal move listは入力に含めない。
 
-## Sibling Projects
+## 兄弟プロジェクト
 
-Kadoka Shougi AI and Kadoka Tetris AI are sibling projects. Before introducing a new CI/build/release pattern, common AI protocol, Runtime/tooling boundary, benchmark method, package convention or policy checker, briefly inspect `doc/sibling-project-alignment.md` and the relevant sibling implementation.
+Kadoka Shougi AI / Kadoka Tetris AIは兄弟プロジェクト。
 
-Adopt useful methods, not game-specific code blindly.
+CI/build/release pattern、共通AI protocol、Runtime/tooling境界、benchmark、package convention、policy checkerを新設・大変更する前に、`doc/sibling-project-alignment.md` と該当兄弟実装を短く確認する。
 
-## Ignore Normally
+有用な手法を採用し、ゲーム固有コードを機械的に共通化しない。
+
+## 通常無視するもの
 
 - `build/`
-- `.codex/` output except the current task capsule
-- generated datasets and large JSONL files
-- temporary evaluator input/output files
-- unrelated Issues, docs and history
-- full logs after a successful validation
+- current task capsule以外の `.codex/` output
+- generated dataset / 大規模JSONL
+- temporary evaluator input/output
+- 無関係なIssue/doc/history
+- 成功済みvalidationのfull log
 
 ## Context Priority
 
-- P0: current task, acceptance conditions, architectural invariants
-- P1: target source and matching tests
-- P2: direct dependencies and contracts
-- P3: detailed reference docs
-- P4: history, unrelated subsystems, large generated outputs
+- P0: current task / acceptance / architecture invariant
+- P1: target source / matching tests
+- P2: direct dependency / contract
+- P3: 詳細reference doc
+- P4: history / unrelated subsystem / large generated output
 
 ## Validation
 
-Use the route in `doc/context-routing.md` and prefer the smallest sufficient evidence first.
+`doc/context-routing.md` のrouteに従い、最小の十分なevidenceから実行する。
 
-Baseline completion checks when the change is broad or shared:
+共有/public boundaryを変更した場合のbaseline:
 
 - `python tools/kadoka_rule_checker/script/kadoka_rule_checker.py .`
 - `cmake -S . -B build`
 - `cmake --build build --config Release`
 - `ctest --test-dir build -C Release --output-on-failure`
 
-For random or character-AI behavior, prefer a fixed seed and bounded headless runs.
-For model/package changes, validate the actual package/assets rather than inferring from source only.
-For CI/build/distribution changes, source tests and built-artifact smoke are separate evidence.
+random / character AIはfixed seed + bounded Headlessを優先する。
 
-## Working Rules
+model/package変更ではsourceだけで推測せず、実package/assetを検証する。
 
-- Search first, read second.
-- Do not mix unrelated refactors into the current task.
-- Summaries are indexes, not replacements for source-of-truth files.
-- If evidence is sufficient, stop exploring.
-- If something remains unchecked, report it as `Unverified` instead of reading unrelated areas to fill space.
+CI/build/distributionではsource testとbuilt artifact smokeを別evidenceとして扱う。
+
+## 作業ルール
+
+- search first, read second。
+- current taskと無関係なrefactorを混ぜない。
+- summaryは索引であり正本の代替ではない。
+- evidenceが十分なら探索を止める。
+- 未確認事項は無関係箇所を読むのではなく `Unverified` と明記する。
