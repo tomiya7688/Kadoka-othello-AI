@@ -669,6 +669,17 @@ std::string metadata_with_training_recipe(
     std::string_view metadata_json,
     const DatasetRecipe& recipe) {
     const std::string recipe_json = dataset_recipe_to_json(recipe);
+    if (recipe.usage != DatasetUsage::Training) {
+        throw std::invalid_argument(
+            "model training metadata requires a training Dataset Recipe");
+    }
+
+    const std::string metadata_model_id =
+        read_string(metadata_json, "model_id");
+    if (metadata_model_id != recipe.model_id) {
+        throw std::invalid_argument(
+            "training recipe model_id does not match model metadata");
+    }
 
     std::size_t begin = 0;
     while (begin < metadata_json.size() &&
