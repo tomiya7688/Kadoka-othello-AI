@@ -1,64 +1,70 @@
 # AI Protocol
 
-## Purpose
+## 目的
 
-Every AI receives the same semantic state and returns a proposed move. Game Core remains authoritative.
+全AIは同じ意味論のstateを受け取り、move proposalを返す。
+
+Game Coreが常にauthority。
 
 ## Input
 
-`AIInput` is the native typed view of `kadoka.core_state.v1`.
+`AIInput` は `kadoka.core_state.v1` と意味論的に同一なnative typed view。
 
-It contains:
+含むもの:
 
 - current board
 - side to move
-- time information
+- time
 
-It does not contain a legal-move list.
+legal-move listは含まない。
 
-Native engines receive a zero-copy board reference. An engine that needs legal moves derives them internally from board + side to move.
+native engineはzero-copy board referenceを受け取る。合法手が必要なengineはboard + side-to-moveから内部生成する。
 
-Examples:
+例:
 
-- Random AI derives the legal set and samples it.
-- Evaluator AI derives legal candidates, builds evaluator features, then scores them.
-- Obake Kadoka / Maru intentionally inspect empty squares without knowing legality.
+- Random AI: legal setを生成してsampleする。
+- Evaluator AI: legal candidateを生成し、feature batchを作ってscoreする。
+- Obake Kadoka / Maru: legalityを知らず、空きマスを候補として見る。
 
 ## Output
 
-`AIOutput` contains one proposed board position.
+`AIOutput` はboard position 1つのproposal。
 
-The proposal is passed to `Game::play()`. A move is not trusted simply because it came from a native or packaged AI.
+proposalは `Game::play()` へ渡し、native/package AI由来でも合法とは信用しない。
 
-## Invalid moves
+## Invalid move
 
-If a proposal is illegal:
+illegal proposal:
 
-- board does not change
-- side to move does not change
-- ply does not change
-- `GameEventType::InvalidMove` is emitted
+- board不変
+- side-to-move不変
+- ply不変
+- `GameEventType::InvalidMove` 発行
 
-Headless retries the same state up to `HeadlessConfig::max_invalid_attempts_per_turn`.
+Headlessは `HeadlessConfig::max_invalid_attempts_per_turn` まで同じstateで再問い合わせできる。
 
-Character/UI behavior and logging can subscribe to the event without being part of Core legality logic.
+GUI / character behavior / loggerはCore legality logicへ混ざらずevent購読で反応できる。
 
-## Package runtime
+## Package Runtime
 
-`AIPackage` binds an `IAIEngine`.
+`AIPackage` は `IAIEngine` を保持する。
 
-The old `PassThroughAdapter` / `DropLegalMovesAdapter` layer was removed because legal moves are no longer a Core input field.
+旧 `PassThroughAdapter` / `DropLegalMovesAdapter` は撤去済み。legal moves自体がCore inputではないため情報をdropするadapterも不要。
 
-Package manifests may still contain an old `adapter` key from historical packages; it is ignored as an unknown compatibility field and new manifests do not emit it.
+historical manifestに旧 `adapter` keyが残っていても未知compatibility fieldとして無視できる。新manifestでは出力しない。
 
-## External/script transport
+## External / script
 
-External and script backends receive canonical JSON state. Transport framing, process lifetime and timeout policy are Runtime concerns and do not change Core semantics.
+external/script backendはcanonical JSON stateを受け取る。
+
+transport framing、process lifetime、timeoutはRuntime責務でありCore semanticsを変更しない。
 
 ## Performance rule
 
-JSON is the API source of truth, not a requirement to serialize on the native hot path.
+JSONがAPI上の正であることと、native hot pathで毎回serializeすることは別。
 
-Native engines use `CoreStateView`; external transports serialize it with `core_state_to_json()`.
+- public semantic contract: `kadoka.core_state.v1`
+- native execution: `CoreStateView`
+- external transport: `core_state_to_json()`
 
-Optimized engines may derive bitboards, fixed buffers, SIMD layouts or tensors internally. Those representations must remain semantically equivalent to the canonical state and must not become alternate public Core APIs.
+bitboard、fixed buffer、SIMD layout、tensor等を内部派生してよいが、別のpublic Core APIにしない。
