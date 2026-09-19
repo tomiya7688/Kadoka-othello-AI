@@ -60,6 +60,44 @@ def validate(path: Path, expected_game: str | None) -> list[str]:
         if field in data and not isinstance(data[field], list):
             errors.append(f"{path}: META108 {field} must be an array")
 
+    training_recipe = data.get("training_recipe")
+    if training_recipe is not None:
+        if not isinstance(training_recipe, dict):
+            errors.append(f"{path}: META109 training_recipe must be an object")
+        else:
+            if training_recipe.get("format") != "kadoka.dataset_recipe.v1":
+                errors.append(
+                    f"{path}: META110 training_recipe.format must be kadoka.dataset_recipe.v1"
+                )
+            for field in ("recipe_id", "model_id", "usage"):
+                value = training_recipe.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    errors.append(
+                        f"{path}: META111 training_recipe.{field} must be a non-empty string"
+                    )
+            datasets = training_recipe.get("datasets")
+            if not isinstance(datasets, list) or not datasets:
+                errors.append(
+                    f"{path}: META112 training_recipe.datasets must be a non-empty array"
+                )
+            else:
+                for index, item in enumerate(datasets):
+                    if not isinstance(item, dict):
+                        errors.append(
+                            f"{path}: META113 training_recipe.datasets[{index}] must be an object"
+                        )
+                        continue
+                    dataset_id = item.get("dataset_id")
+                    ratio = item.get("ratio")
+                    if not isinstance(dataset_id, str) or not dataset_id.strip():
+                        errors.append(
+                            f"{path}: META114 training_recipe.datasets[{index}].dataset_id must be a non-empty string"
+                        )
+                    if not isinstance(ratio, (int, float)) or isinstance(ratio, bool) or ratio <= 0:
+                        errors.append(
+                            f"{path}: META115 training_recipe.datasets[{index}].ratio must be > 0"
+                        )
+
     return errors
 
 
