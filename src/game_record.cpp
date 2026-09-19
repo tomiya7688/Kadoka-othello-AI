@@ -57,17 +57,28 @@ std::string escape_json(std::string_view value) {
 
 std::size_t find_value_start(std::string_view json, std::string_view key) {
     const std::string token = "\"" + std::string(key) + "\"";
-    const std::size_t key_pos = json.find(token);
-    if (key_pos == std::string_view::npos) {
-        throw std::invalid_argument("record missing field: " + std::string(key));
+    std::size_t search_from = 0;
+    while (true) {
+        const std::size_t key_pos = json.find(token, search_from);
+        if (key_pos == std::string_view::npos) {
+            throw std::invalid_argument("record missing field: " + std::string(key));
+        }
+
+        std::size_t colon = key_pos + token.size();
+        while (colon < json.size() &&
+               std::isspace(static_cast<unsigned char>(json[colon]))) {
+            ++colon;
+        }
+        if (colon < json.size() && json[colon] == ':') {
+            std::size_t pos = colon + 1;
+            while (pos < json.size() &&
+                   std::isspace(static_cast<unsigned char>(json[pos]))) {
+                ++pos;
+            }
+            return pos;
+        }
+        search_from = key_pos + token.size();
     }
-    const std::size_t colon = json.find(':', key_pos + token.size());
-    if (colon == std::string_view::npos) {
-        throw std::invalid_argument("record malformed field: " + std::string(key));
-    }
-    std::size_t pos = colon + 1;
-    while (pos < json.size() && std::isspace(static_cast<unsigned char>(json[pos]))) ++pos;
-    return pos;
 }
 
 std::string parse_string_at(std::string_view json, std::size_t pos) {
