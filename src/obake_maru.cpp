@@ -55,7 +55,7 @@ std::string ObakeMaruAI::id() const {
     return "kadoka.obake_maru";
 }
 
-AIOutput ObakeMaruAI::think(const AdaptedAIInput& input) {
+AIOutput ObakeMaruAI::think(const AIInput& input) {
     if (input.board == nullptr) throw std::invalid_argument("ObakeMaruAI requires board input");
 
     const std::uint64_t hash = hash_board(*input.board);
@@ -70,7 +70,7 @@ AIOutput ObakeMaruAI::think(const AdaptedAIInput& input) {
     return AIOutput{move};
 }
 
-AIInspection ObakeMaruAI::inspect(const AdaptedAIInput& input) {
+AIInspection ObakeMaruAI::inspect(const AIInput& input) {
     if (input.board == nullptr) throw std::invalid_argument("ObakeMaruAI requires board input");
 
     const std::uint64_t hash = hash_board(*input.board);
