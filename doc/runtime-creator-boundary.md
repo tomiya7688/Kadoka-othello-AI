@@ -1,64 +1,62 @@
-# AI Runtime / AI Creator Boundary
+# AI Runtime / AI Creator境界
 
-## Purpose
+## 目的
 
-Kadoka Othello AI separates the AI execution path from the AI creation/development path.
+Kadoka Othello AIでは、AI実行経路とAI作成・開発経路を分離する。
 
-This is primarily a performance rule.
+これは整理上だけでなくperformance rule。
 
-The game and headless self-play runner may execute millions of inferences. Development-only analysis, conversion, import, rich diagnostics and dataset tooling must not become dependencies of that hot path.
+Game / Headless self-playは大量のinferenceを実行するため、開発専用analysis、conversion、import、rich diagnostics、dataset toolingをhot path依存へ入れない。
 
-## Two products
+## AI Runtime
 
-### AI Runtime
+packaged modelを読み込み、対局中にできるだけ小さいoverheadでmove proposalを返す。
 
-The Runtime exists to load a packaged model and return a move as cheaply as possible.
+Runtime責務:
 
-Runtime responsibilities:
+- `manifest.json` load
+- root `model.json` load
+- required asset解決
+- canonical typed Core stateをmodelへ渡す
+- native/model/script inference
+- character memory等のmodel-local state
+- selected move proposal
+- 明示時だけlightweight inspection
+- Headless self-play
+- Game Recordのminimal raw recording
 
-- load `manifest.json`
-- load the root `model.json`
-- resolve required model assets
-- adapt game input to the model input
-- run native/model/script inference
-- preserve model-local state such as character memory
-- return the selected move
-- optionally expose lightweight inspection when explicitly requested
-- support headless self-play
-
-Runtime must not depend on:
+Runtimeから依存禁止:
 
 - AI Creator batch analysis
 - dataset conversion
-- import/package creation tools
-- format conversion tables
+- import/package creation
+- format conversion table
 - training/tuning orchestration
-- rich report generation
+- rich report
 - Creator-only benchmark orchestration
 
-### AI Creator
+## AI Creator
 
-AI Creator is a development application built on top of the Runtime.
+Runtime上に構築する開発application。
 
-Creator responsibilities:
+Creator責務:
 
-- create/package models
-- import external AIs
-- inspect candidate values and diagnostics
-- compare multiple AIs
-- batch-analyze positions
-- benchmark models
-- convert model/dataset formats
-- validate package assets
-- tune parameters
-- export datasets and analysis records
+- model作成/package化
+- external AI import
+- candidate value / diagnostics inspection
+- 複数AI比較
+- batch position analysis
+- benchmark
+- model/dataset format conversion
+- package asset validation
+- tuning
+- dataset / analysis record export
 
-Creator is allowed to depend on Runtime.
-Runtime must never depend on Creator.
+Creator -> Runtime依存は許可する。
 
-## Build dependency rule
+Runtime -> Creatorは禁止。
 
-Current CMake targets enforce the direction:
+## Build dependency
 
 ```text
 kadoka_othello_runtime
@@ -70,26 +68,15 @@ kadoka_othello_creator_support
 kadoka_othello_ai_creator
 ```
 
-Game/headless execution links only:
+Game/Headlessは `kadoka_othello_runtime` のみlinkする。
 
-```text
-kadoka_othello_runtime
-```
+CreatorはCreator Support + Runtimeをlinkする。
 
-The Creator links:
-
-```text
-kadoka_othello_creator_support
-+ kadoka_othello_runtime
-```
-
-This is intentional. Do not merge these targets again for convenience.
+便利だからという理由で再統合しない。
 
 ## Shared contract
 
-Runtime and Creator share the model/package contracts, not Creator implementation code.
-
-Shared concepts include:
+共有するのはCreator実装ではなくcontract。
 
 - `AIPackageManifest`
 - `ModelRootDescriptor`
@@ -100,7 +87,7 @@ Shared concepts include:
 - optional `AIInspection`
 - `ScriptEvaluator`
 
-The game contract remains:
+Game-facing contract:
 
 ```text
 input:
@@ -112,23 +99,26 @@ output:
   selected move proposal
 ```
 
-The public semantic source of truth is `kadoka.core_state.v1` JSON. Native Runtime uses the equivalent `CoreStateView` directly so JSON serialization is not added to every inference.
+public semantic source of truthは `kadoka.core_state.v1` JSON。
 
-Legal moves are derived by engines/tooling that need them. They are not a Core input field.
+native Runtimeは同じ意味論の `CoreStateView` を直接使い、毎inferenceのJSON serializationを避ける。
 
-## Hot path rule
+legal movesが必要なengine/toolingはboard + side-to-moveから派生する。Core input fieldではない。
 
-Normal game execution should use `think()`.
+## Hot path
+
+通常対局:
 
 ```text
 Game
   -> Runtime package
   -> model engine
   -> think()
-  -> move
+  -> move proposal
+  -> Game validation
 ```
 
-Development tools may use `inspect()`.
+開発tool:
 
 ```text
 AI Creator
@@ -138,66 +128,54 @@ AI Creator
   -> move + candidates + diagnostics
 ```
 
-Do not make `think()` internally call Creator analysis code.
-Do not generate dataset records, strings, reports or conversion objects on the normal Runtime path unless the model itself requires them for inference.
+`think()` からCreator analysisを呼ばない。
 
-## Script evaluators
+model inferenceそのものに必要でないdataset record/string/report/conversion objectを通常inference pathで生成しない。
 
-`kadoka.script_evaluator.v1` is a Runtime feature because a model may require a script to perform inference.
+## Script Evaluator
 
-This does not make the script evaluator a Creator feature.
+`kadoka.script_evaluator.v1` はmodelがinferenceにscript evaluatorを必要とできるためRuntime機能。
 
-Runtime may execute a model-owned script because the script is part of the model definition.
-Creator may inspect/test that same evaluator through Runtime APIs.
-
-The distinction is:
+Runtimeがmodel-owned evaluatorを実行してもCreator機能にはならない。
 
 ```text
 model-required computation -> Runtime
 model-development tooling   -> Creator
 ```
 
-For `python_process`, candidates should be batch-evaluated in one process invocation whenever possible. Per-candidate process launches are prohibited on performance grounds.
+`python_process` ではcandidateごとのprocess起動を禁止し、可能な限り1 batch / 1 invocationにする。
 
-## Dataset generation
+## Dataset / Record
 
-Headless self-play belongs to Runtime because it is repeated game execution.
+Headless self-playとminimal Game Record生成はRuntimeに属する。
 
-Dataset serialization, transformation, relabeling, conversion and analysis belong to Creator/tooling.
-
-Recommended flow:
+重いserialization変換、relabel、format conversion、analysis、training dataset構築はCreator/tooling。
 
 ```text
 Runtime self-play
-  -> compact game/result stream
-  -> Creator / dataset tools
-  -> analysis / conversion / training data
+  -> Game Record / raw stream
+  -> Creator / Dataset tooling
+  -> analysis / conversion / training
 ```
 
-The Runtime may emit minimal raw records when explicitly enabled, but it should not own heavy dataset processing.
+## Dependency review
 
-## Dependency review checklist
+新component追加時:
 
-Before adding a new component, ask:
-
-1. Is this required to choose a move during a game?
+1. 対局中のmove選択に必要か。
    - yes: Runtime candidate
-   - no: probably Creator/tooling
-
-2. Does it create reports, datasets, conversions or comparisons?
+   - no: Creator/toolingを検討
+2. report/dataset conversion/comparisonを作るか。
    - Creator/tooling
-
-3. Is it a model asset interpreter needed by inference?
+3. inferenceに必要なmodel asset interpreterか。
    - Runtime
-
-4. Is it only useful while developing/tuning a model?
+4. model development/tuning中だけ必要か。
    - Creator/tooling
+5. 毎inferenceでallocation/serialization/process launch/dependency sizeを増やすか。
+   - 厳密に必要でなければRuntimeへ入れない
 
-5. Would adding it increase allocations, serialization, process launches or dependency size on every inference?
-   - keep it out of Runtime unless strictly required
+## Invariant
 
-## Design invariant
+**AI CreatorはAIを作成・解析・調整する。AI RuntimeはAIを実行する。**
 
-**AI Creator creates, analyzes and tunes AIs. AI Runtime executes AIs.**
-
-Keeping this boundary strict is a performance requirement, not only a code-organization preference.
+この境界はperformance requirement。
