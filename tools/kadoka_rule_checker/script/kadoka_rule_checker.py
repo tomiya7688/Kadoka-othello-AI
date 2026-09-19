@@ -20,6 +20,7 @@ DOCUMENT_AUTHORITY_FILES = (
     "README.md",
     "AI_CONTEXT.md",
     "AGENTS.md",
+    ".github/pull_request_template.md",
     "doc/document-language-policy.md",
     "doc/sibling-project-alignment.md",
 )
