@@ -30,6 +30,7 @@ Kadoka check: 1 error(s)
 
 - `KAD101`: Runtime sourceからCreator-only headerへの依存禁止
 - `KAD102`: `kadoka_othello_runtime` から `kadoka_othello_creator_support` へのリンク禁止
+- `KAD103`: 主要入口文書に「日本語を正本」の宣言が存在すること
 - `KAD900`: ignore定義不正
 
 ## Ignore
@@ -51,3 +52,18 @@ KAD101 src/optimized/** measured hot-path exception
 ## 方針
 
 1ファイル1責務や1関数1動作のように静的解析だけでは確定しにくい規約は、誤検知を避けるため現時点では自動エラー化しない。
+
+
+## 文書言語チェック
+
+`KAD103` は自然言語を推測して「日本語らしさ」を採点しない。
+
+次の主要入口に明示的な `日本語を正本` markerがあることだけを確認する。
+
+- `README.md`
+- `AI_CONTEXT.md`
+- `AGENTS.md`
+- `doc/document-language-policy.md`
+- `doc/sibling-project-alignment.md`
+
+これにより誤検知を増やさず、project-wide policyが入口から消えることだけを防ぐ。
