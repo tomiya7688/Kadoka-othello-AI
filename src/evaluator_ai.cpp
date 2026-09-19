@@ -1,10 +1,11 @@
 #include "kadoka_othello/evaluator_ai.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
+
+#include "kadoka_othello/rules.hpp"
 
 namespace kadoka::othello {
 namespace {
@@ -26,22 +27,29 @@ const ModelAssetDescriptor& evaluator_asset(const ModelRootDescriptor& model) {
     return *selected;
 }
 
-std::vector<ScriptEvaluatorCase> make_cases(const AIInput& input) {
+std::vector<Position> derive_legal_moves(const AIInput& input) {
     if (input.board == nullptr) {
         throw std::invalid_argument("EvaluatorAI requires board input");
     }
-    if (input.legal_moves == nullptr || input.legal_moves->empty()) {
-        throw std::invalid_argument("EvaluatorAI requires non-empty legal moves");
+    std::vector<Position> legal_moves =
+        rules::legal_moves(*input.board, input.side_to_move);
+    if (legal_moves.empty()) {
+        throw std::invalid_argument("EvaluatorAI requires at least one legal move");
     }
+    return legal_moves;
+}
 
+std::vector<ScriptEvaluatorCase> make_cases(
+    const AIInput& input,
+    const std::vector<Position>& legal_moves) {
     const double board_size = static_cast<double>(input.board->size());
     const double denominator = board_size > 1.0 ? board_size - 1.0 : 1.0;
     const double center = (board_size - 1.0) * 0.5;
 
     std::vector<ScriptEvaluatorCase> cases;
-    cases.reserve(input.legal_moves->size());
-    for (std::size_t index = 0; index < input.legal_moves->size(); ++index) {
-        const Position move = input.legal_moves->at(index);
+    cases.reserve(legal_moves.size());
+    for (std::size_t index = 0; index < legal_moves.size(); ++index) {
+        const Position move = legal_moves[index];
         const bool top_or_bottom = move.row == 0 || move.row + 1 == input.board->size();
         const bool left_or_right = move.col == 0 || move.col + 1 == input.board->size();
         const bool corner = top_or_bottom && left_or_right;
@@ -61,7 +69,7 @@ std::vector<ScriptEvaluatorCase> make_cases(const AIInput& input) {
             {"is_corner", corner ? 1.0 : 0.0},
             {"is_edge", edge ? 1.0 : 0.0},
             {"center_distance", distance},
-            {"legal_move_count", static_cast<double>(input.legal_moves->size())},
+            {"legal_move_count", static_cast<double>(legal_moves.size())},
         };
         cases.push_back(std::move(item));
     }
@@ -90,7 +98,8 @@ AIOutput EvaluatorAI::think(const AIInput& input) {
 }
 
 AIInspection EvaluatorAI::inspect(const AIInput& input) {
-    const auto cases = make_cases(input);
+    const std::vector<Position> legal_moves = derive_legal_moves(input);
+    const auto cases = make_cases(input, legal_moves);
     const auto results = evaluator_.evaluate_batch(cases);
 
     std::unordered_map<std::size_t, const ScriptEvaluatorResult*> by_id;
@@ -114,16 +123,12 @@ AIInspection EvaluatorAI::inspect(const AIInput& input) {
     std::size_t selected_index = 0;
     double selected_value = 0.0;
     for (std::size_t index = 0; index < cases.size(); ++index) {
-        const auto found = by_id.find(index);
-        if (found == by_id.end()) {
-            throw std::runtime_error("evaluator AI result mapping is incomplete");
-        }
-        const ScriptEvaluatorResult& result = *found->second;
+        const ScriptEvaluatorResult& result = *by_id.at(index);
         const double value = result.value_or("score", 0.0);
         const double policy = result.value_or(
             "policy",
             result.value_or("confidence", 0.0));
-        inspection.candidates.push_back({input.legal_moves->at(index), value, policy});
+        inspection.candidates.push_back({legal_moves[index], value, policy});
 
         if (!selected || value > selected_value) {
             selected = true;
@@ -136,7 +141,7 @@ AIInspection EvaluatorAI::inspect(const AIInput& input) {
         throw std::runtime_error("evaluator AI failed to select a move");
     }
 
-    inspection.output = AIOutput{input.legal_moves->at(selected_index)};
+    inspection.output = AIOutput{legal_moves[selected_index]};
     inspection.diagnostics.push_back({"engine", "kadoka.evaluator_ai.v1"});
     inspection.diagnostics.push_back({
         "evaluator_runtime",
