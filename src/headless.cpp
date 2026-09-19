@@ -80,17 +80,21 @@ HeadlessSummary run_games(
 
     for (std::size_t game_index = 0; game_index < config.games; ++game_index) {
         Game game(config.board_size);
+        game.add_event_listener([&summary](const GameEvent& event) {
+            if (event.type == GameEventType::InvalidMove) {
+                ++summary.invalid_move_attempts;
+            }
+        });
 
         while (game.status() == GameStatus::Playing) {
-            const auto moves = game.legal_moves();
-            if (moves.empty()) {
+            if (game.can_pass()) {
                 if (!game.pass()) {
                     break;
                 }
                 continue;
             }
 
-            const AIInput input{&game.board(), &moves};
+            const AIInput input{&game.board(), game.current_player(), {}};
             const AIPackage current = package_for_player(
                 game.current_player(),
                 black,
@@ -110,7 +114,6 @@ HeadlessSummary run_games(
                     played = true;
                     break;
                 }
-                ++summary.invalid_move_attempts;
                 ++invalid_attempts_this_turn;
             }
 
@@ -147,12 +150,10 @@ HeadlessSummary run_random_games(
     std::ostream* dataset_output) {
     RandomAI black_ai(config.seed == 0 ? 0 : config.seed);
     RandomAI white_ai(config.seed == 0 ? 0 : config.seed + 1);
-    PassThroughAdapter adapter;
-
     return run_games(
         config,
-        AIPackage{&black_ai, &adapter},
-        AIPackage{&white_ai, &adapter},
+        AIPackage{&black_ai},
+        AIPackage{&white_ai},
         dataset_output);
 }
 
