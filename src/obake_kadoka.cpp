@@ -82,7 +82,7 @@ std::string ObakeKadokaAI::id() const {
     return "kadoka.obake_kadoka";
 }
 
-AIOutput ObakeKadokaAI::think(const AdaptedAIInput& input) {
+AIOutput ObakeKadokaAI::think(const AIInput& input) {
     if (input.board == nullptr) throw std::invalid_argument("ObakeKadokaAI requires board input");
 
     const std::uint64_t board_hash = hash_board(*input.board);
@@ -98,7 +98,7 @@ AIOutput ObakeKadokaAI::think(const AdaptedAIInput& input) {
     return AIOutput{move};
 }
 
-AIInspection ObakeKadokaAI::inspect(const AdaptedAIInput& input) {
+AIInspection ObakeKadokaAI::inspect(const AIInput& input) {
     if (input.board == nullptr) throw std::invalid_argument("ObakeKadokaAI requires board input");
 
     const std::uint64_t board_hash = hash_board(*input.board);
