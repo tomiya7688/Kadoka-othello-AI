@@ -84,28 +84,19 @@ This avoids writing a shutdown command to a pipe after a crashed child has alrea
 
 ## Request protocol
 
-Each request has a monotonically increasing ID.
+Each request has a monotonically increasing ID and carries the canonical JSON state.
+
+Conceptually:
 
 ```text
 request 1
-size 8
-row ........
-row ........
-row ...WB...
-row ...BW...
-row ........
-row ........
-row ........
-row ........
-legal_count 4
-legal 2 3
-legal 3 2
-legal 4 5
-legal 5 4
+json {"board_size":8,"cells":[...],"current_player":"black","time":{"black_ms":300000,"white_ms":300000}}
 end
 ```
 
-When an adapter removes legal moves, `legal_count` is zero and no `legal` records follow.
+The session framing may evolve, but the request payload semantics must remain identical to the canonical Core JSON state: board, side to move and time information only.
+
+Legal moves are not transmitted as part of the canonical request. An external AI that needs them derives them locally from the board.
 
 ## Response protocol
 
@@ -146,6 +137,8 @@ On POSIX, writes to a child that has already closed stdin are converted to norma
 
 The external AI does not own the canonical board. Its move remains a proposal and the game core performs legality/state-transition validation.
 
+An illegal proposal leaves board/turn state unchanged and produces an invalid-move event. A retry therefore observes the same canonical state except for time changes that result from the configured time-control policy.
+
 ## Performance boundary
 
 Persistent transport removes per-move process startup and temporary files, but serialization and pipe I/O still exist.
@@ -171,7 +164,8 @@ An `ExternalAISession` owns one child process and is not a shared global session
 
 - two requests reuse the same process;
 - normal legal response;
-- illegal proposal does not alter canonical game state;
+- canonical request contains board / turn / time only;
+- illegal proposal does not alter canonical board/turn state and emits an invalid-move event;
 - malformed response rejection;
 - process exit detection;
 - timeout detection.
