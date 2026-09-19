@@ -124,6 +124,42 @@ void test_derived_dataset() {
     }));
 }
 
+void test_provenance_parent_validation() {
+    DatasetRegistry missing_parent;
+    DatasetEntry orphan = make_entry(
+        "orphan",
+        DatasetUsage::Training,
+        8,
+        {"game-a"});
+    orphan.provenance.source_type = "derived";
+    orphan.provenance.parent_dataset = "missing";
+    missing_parent.register_dataset(orphan);
+    KADOKA_REQUIRE(throws_invalid_argument([&] {
+        missing_parent.validate();
+    }));
+
+    DatasetRegistry cycle;
+    DatasetEntry first = make_entry(
+        "cycle-a",
+        DatasetUsage::Training,
+        8,
+        {"game-cycle"});
+    DatasetEntry second = make_entry(
+        "cycle-b",
+        DatasetUsage::Training,
+        8,
+        {"game-cycle"});
+    first.provenance.source_type = "derived";
+    second.provenance.source_type = "derived";
+    first.provenance.parent_dataset = "cycle-b";
+    second.provenance.parent_dataset = "cycle-a";
+    cycle.register_dataset(first);
+    cycle.register_dataset(second);
+    KADOKA_REQUIRE(throws_invalid_argument([&] {
+        cycle.validate();
+    }));
+}
+
 void test_recipe_dedup_and_usage_separation() {
     DatasetRegistry registry;
     const DatasetEntry raw = make_entry(
@@ -221,6 +257,20 @@ void test_recipe_round_trip_and_model_metadata() {
         static_cast<void>(
             metadata_with_training_recipe(with_recipe, recipe));
     }));
+
+    DatasetRecipe wrong_model = recipe;
+    wrong_model.model_id = "other.model";
+    KADOKA_REQUIRE(throws_invalid_argument([&] {
+        static_cast<void>(
+            metadata_with_training_recipe(metadata, wrong_model));
+    }));
+
+    DatasetRecipe validation_recipe = recipe;
+    validation_recipe.usage = DatasetUsage::Validation;
+    KADOKA_REQUIRE(throws_invalid_argument([&] {
+        static_cast<void>(
+            metadata_with_training_recipe(metadata, validation_recipe));
+    }));
 }
 
 void test_entry_json_unknown_optional_field() {
@@ -247,6 +297,7 @@ int main() {
     test_dataset_id();
     test_registry_round_trip_and_board_sizes();
     test_derived_dataset();
+    test_provenance_parent_validation();
     test_recipe_dedup_and_usage_separation();
     test_recipe_round_trip_and_model_metadata();
     test_entry_json_unknown_optional_field();
