@@ -1,5 +1,7 @@
 #include "kadoka_othello/game.hpp"
 
+#include <utility>
+
 namespace kadoka::othello {
 
 Game::Game(std::size_t board_size)
@@ -17,6 +19,10 @@ Player Game::current_player() const noexcept {
 
 GameStatus Game::status() const noexcept {
     return status_;
+}
+
+std::size_t Game::ply() const noexcept {
+    return ply_;
 }
 
 const std::vector<Move>& Game::history() const noexcept {
@@ -55,17 +61,41 @@ std::optional<GameResult> Game::result() const {
 
 bool Game::play(Position position) {
     if (status_ == GameStatus::Finished) {
+        emit_event(GameEvent{
+            GameEventType::InvalidMove,
+            ply_,
+            current_player_,
+            position,
+            std::nullopt,
+        });
         return false;
     }
 
-    if (!rules::apply_move(board_, position, current_player_)) {
+    const Player actor = current_player_;
+    if (!rules::apply_move(board_, position, actor)) {
+        emit_event(GameEvent{
+            GameEventType::InvalidMove,
+            ply_,
+            actor,
+            position,
+            std::nullopt,
+        });
         return false;
     }
 
-    history_.push_back(Move{current_player_, position});
+    history_.push_back(Move{actor, position});
     consecutive_passes_ = 0;
+    ++ply_;
     advance_turn();
     update_finished_state();
+    emit_event(GameEvent{
+        GameEventType::MoveAccepted,
+        ply_,
+        actor,
+        position,
+        std::nullopt,
+    });
+    emit_terminal_if_finished(actor);
     return true;
 }
 
@@ -74,9 +104,19 @@ bool Game::pass() {
         return false;
     }
 
+    const Player actor = current_player_;
     ++consecutive_passes_;
+    ++ply_;
     advance_turn();
     update_finished_state();
+    emit_event(GameEvent{
+        GameEventType::Pass,
+        ply_,
+        actor,
+        std::nullopt,
+        std::nullopt,
+    });
+    emit_terminal_if_finished(actor);
     return true;
 }
 
@@ -85,8 +125,13 @@ void Game::reset() {
     current_player_ = Player::Black;
     status_ = GameStatus::Playing;
     consecutive_passes_ = 0;
+    ply_ = 0;
     history_.clear();
     update_finished_state();
+}
+
+void Game::add_event_listener(GameEventListener listener) {
+    listeners_.push_back(std::move(listener));
 }
 
 void Game::advance_turn() {
@@ -104,6 +149,23 @@ void Game::update_finished_state() {
     status_ = (!current_has_move && !other_has_move)
         ? GameStatus::Finished
         : GameStatus::Playing;
+}
+
+void Game::emit_event(const GameEvent& event) const {
+    for (const auto& listener : listeners_) {
+        listener(event);
+    }
+}
+
+void Game::emit_terminal_if_finished(Player actor) const {
+    if (status_ != GameStatus::Finished) return;
+    emit_event(GameEvent{
+        GameEventType::Terminal,
+        ply_,
+        actor,
+        std::nullopt,
+        result(),
+    });
 }
 
 }  // namespace kadoka::othello
