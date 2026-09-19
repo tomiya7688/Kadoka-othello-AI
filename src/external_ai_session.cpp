@@ -27,7 +27,7 @@
 namespace kadoka::othello {
 namespace {
 
-std::string build_request(std::size_t request_id, const AdaptedAIInput& input) {
+std::string build_request(std::size_t request_id, const AIInput& input) {
     if (input.board == nullptr) {
         throw std::invalid_argument("external AI session requires board input");
     }
@@ -482,7 +482,7 @@ ExternalAISession::~ExternalAISession() = default;
 ExternalAISession::ExternalAISession(ExternalAISession&&) noexcept = default;
 ExternalAISession& ExternalAISession::operator=(ExternalAISession&&) noexcept = default;
 
-AIInspection ExternalAISession::inspect(const AdaptedAIInput& input) {
+AIInspection ExternalAISession::inspect(const AIInput& input) {
     const std::size_t request_id = next_request_id_++;
     impl_->write_request(build_request(request_id, input));
     return parse_response(request_id, impl_->read_response(request_id));
