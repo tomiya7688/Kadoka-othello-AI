@@ -39,6 +39,10 @@ bool is_legal(const Position move, const std::vector<Position>& legal_moves) {
     return false;
 }
 
+AIInput input_for(const Game& game) {
+    return AIInput{&game.board(), game.current_player(), {}};
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -48,11 +52,10 @@ int main(int argc, char** argv) {
     {
         Game game(8);
         const auto legal_moves = game.legal_moves();
-        const AdaptedAIInput input{&game.board(), &legal_moves};
         ExternalAISession session(make_config(helper));
 
-        const AIInspection first = session.inspect(input);
-        const AIInspection second = session.inspect(input);
+        const AIInspection first = session.inspect(input_for(game));
+        const AIInspection second = session.inspect(input_for(game));
         assert(is_legal(first.output.move, legal_moves));
         assert(is_legal(second.output.move, legal_moves));
         assert(diagnostic_value(first, "request_count") == "1");
@@ -61,55 +64,32 @@ int main(int argc, char** argv) {
 
     {
         Game game(8);
-        const auto legal_moves = game.legal_moves();
-        const AdaptedAIInput input{&game.board(), &legal_moves};
+        std::size_t invalid_events = 0;
+        game.add_event_listener([&invalid_events](const GameEvent& event) {
+            if (event.type == GameEventType::InvalidMove) ++invalid_events;
+        });
         ExternalAISession session(make_config(helper, "illegal"));
 
         const std::string before = snapshot_to_json(make_snapshot(game));
-        const AIInspection result = session.inspect(input);
+        const std::size_t ply_before = game.ply();
+        const AIInspection result = session.inspect(input_for(game));
         assert(!game.play(result.output.move));
         const std::string after = snapshot_to_json(make_snapshot(game));
         assert(before == after);
+        assert(game.ply() == ply_before);
+        assert(invalid_events == 1);
     }
 
-    {
+    for (const std::string mode : {"malformed", "exit", "timeout"}) {
         Game game(8);
-        const auto legal_moves = game.legal_moves();
-        const AdaptedAIInput input{&game.board(), &legal_moves};
-        ExternalAISession session(make_config(helper, "malformed"));
-        bool failed = false;
-        try {
-            (void)session.inspect(input);
-        } catch (const std::runtime_error&) {
-            failed = true;
+        ExternalAISessionConfig config = make_config(helper, mode);
+        if (mode == "timeout") {
+            config.response_timeout = std::chrono::milliseconds(50);
         }
-        assert(failed);
-    }
-
-    {
-        Game game(8);
-        const auto legal_moves = game.legal_moves();
-        const AdaptedAIInput input{&game.board(), &legal_moves};
-        ExternalAISession session(make_config(helper, "exit"));
-        bool failed = false;
-        try {
-            (void)session.inspect(input);
-        } catch (const std::runtime_error&) {
-            failed = true;
-        }
-        assert(failed);
-    }
-
-    {
-        Game game(8);
-        const auto legal_moves = game.legal_moves();
-        const AdaptedAIInput input{&game.board(), &legal_moves};
-        ExternalAISessionConfig config = make_config(helper, "timeout");
-        config.response_timeout = std::chrono::milliseconds(50);
         ExternalAISession session(std::move(config));
         bool failed = false;
         try {
-            (void)session.inspect(input);
+            (void)session.inspect(input_for(game));
         } catch (const std::runtime_error&) {
             failed = true;
         }
