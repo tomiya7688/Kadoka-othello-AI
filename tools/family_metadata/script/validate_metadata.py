@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -75,6 +76,17 @@ def validate(path: Path, expected_game: str | None) -> list[str]:
                     errors.append(
                         f"{path}: META111 training_recipe.{field} must be a non-empty string"
                     )
+            if training_recipe.get("usage") != "training":
+                errors.append(
+                    f"{path}: META116 training_recipe.usage must be training"
+                )
+            if (
+                isinstance(data.get("model_id"), str)
+                and training_recipe.get("model_id") != data.get("model_id")
+            ):
+                errors.append(
+                    f"{path}: META117 training_recipe.model_id must match model_id"
+                )
             datasets = training_recipe.get("datasets")
             if not isinstance(datasets, list) or not datasets:
                 errors.append(
@@ -93,9 +105,14 @@ def validate(path: Path, expected_game: str | None) -> list[str]:
                         errors.append(
                             f"{path}: META114 training_recipe.datasets[{index}].dataset_id must be a non-empty string"
                         )
-                    if not isinstance(ratio, (int, float)) or isinstance(ratio, bool) or ratio <= 0:
+                    if (
+                        not isinstance(ratio, (int, float))
+                        or isinstance(ratio, bool)
+                        or not math.isfinite(ratio)
+                        or ratio <= 0
+                    ):
                         errors.append(
-                            f"{path}: META115 training_recipe.datasets[{index}].ratio must be > 0"
+                            f"{path}: META115 training_recipe.datasets[{index}].ratio must be finite and > 0"
                         )
 
     return errors
