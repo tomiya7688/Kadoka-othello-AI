@@ -66,7 +66,6 @@ std::uint64_t participant_content_hash(
     hash_text(hash, manifest.id);
     hash_text(hash, manifest.version);
     hash_text(hash, package_interface_name(manifest.interface_type));
-    hash_text(hash, manifest.adapter);
     hash_text(hash, manifest.entry);
     hash_text(hash, manifest.model);
     hash_text(hash, config.config_hash);
