@@ -28,6 +28,7 @@ add_library(kadoka_othello_runtime
     src/rules.cpp
     src/game.cpp
     src/state.cpp
+    src/core_state.cpp
     src/ai.cpp
     src/model_descriptor.cpp
     src/script_evaluator.cpp
@@ -323,6 +324,11 @@ if(BUILD_TESTING)
 
     add_executable(kadoka_external_ai_session_helper
         src/tests/external_ai_session_helper.cpp
+    )
+
+    target_link_libraries(kadoka_external_ai_session_helper
+        PRIVATE
+            kadoka_othello_runtime
     )
 
     add_executable(kadoka_external_ai_session_test
