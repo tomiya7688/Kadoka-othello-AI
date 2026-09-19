@@ -3,8 +3,9 @@
 #include <sstream>
 #include <string>
 #include <thread>
-#include <utility>
-#include <vector>
+
+#include "kadoka_othello/core_state.hpp"
+#include "kadoka_othello/rules.hpp"
 
 namespace {
 
@@ -30,12 +31,13 @@ Mode parse_mode(int argc, char** argv) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    using namespace kadoka::othello;
+
     const Mode mode = parse_mode(argc, argv);
     std::size_t request_count = 0;
     std::string line;
 
     while (std::getline(std::cin, line)) {
-        if (line == "quit") return 0;
         if (line.rfind("request ", 0) != 0) continue;
 
         std::size_t request_id = 0;
@@ -45,17 +47,17 @@ int main(int argc, char** argv) {
             parser >> kind >> request_id;
         }
 
-        std::vector<std::pair<std::size_t, std::size_t>> legal_moves;
+        std::string state_json;
         while (std::getline(std::cin, line) && line != "end") {
-            if (line.rfind("legal ", 0) == 0) {
-                std::istringstream parser(line);
-                std::string kind;
-                std::size_t row = 0;
-                std::size_t col = 0;
-                parser >> kind >> row >> col;
-                legal_moves.emplace_back(row, col);
+            if (line.rfind("state ", 0) == 0) {
+                state_json = line.substr(6);
             }
         }
+        if (state_json.empty()) return 18;
+
+        const CoreState state = parse_core_state_json(state_json);
+        const Board board = board_from_core_state(state);
+        const auto legal_moves = rules::legal_moves(board, state.side_to_move);
 
         ++request_count;
         if (mode == Mode::Exit) return 17;
@@ -72,7 +74,8 @@ int main(int argc, char** argv) {
         if (mode == Mode::Illegal || legal_moves.empty()) {
             std::cout << "move 0 0\n";
         } else {
-            std::cout << "move " << legal_moves.front().first << ' ' << legal_moves.front().second << '\n';
+            std::cout << "move " << legal_moves.front().row << ' '
+                      << legal_moves.front().col << '\n';
         }
         std::cout << "diag request_count=" << request_count << '\n';
         std::cout << "end\n" << std::flush;
