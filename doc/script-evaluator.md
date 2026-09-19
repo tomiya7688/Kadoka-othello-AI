@@ -1,12 +1,20 @@
 # Script Evaluator
 
-`kadoka.script_evaluator.v1` is an executable model asset for AI models that carry their own evaluation script.
+`kadoka.script_evaluator.v1` はmodelが自身のevaluation logicをassetとして持つためのcontract。
 
-Current runtime:
+実装済みruntime:
 
 - `python_process`
+- `native_process`
+- `native_in_process`
 
-A model root can reference it like this:
+予約:
+
+- `wasm`
+
+詳細は `doc/script-evaluator-runtime.md`。
+
+## Asset
 
 ```json
 {
@@ -17,7 +25,7 @@ A model root can reference it like this:
 }
 ```
 
-The evaluator config points to the script:
+例:
 
 ```json
 {
@@ -30,7 +38,7 @@ The evaluator config points to the script:
 
 ## Batch protocol
 
-The C++ runtime sends every candidate for one evaluation step in one process call.
+process runtimeでは1 evaluation stepのcandidateを1 batchで送る。
 
 Input:
 
@@ -60,13 +68,11 @@ value confidence 0.6
 end
 ```
 
-Output names are arbitrary numeric channels. `score` is a convention, not the only permitted value.
+numeric output channel名はmodel側で追加できる。`score` はconvention。
 
-This allows a model such as Sage Merry Slime to keep memory/path handling in its native engine while its package-owned evaluator script receives extracted features and returns score, confidence, forgetting modifiers, or other numeric outputs.
+Sage Merry Slimeのようなmodelでは、memory/path handlingをnative engineに残し、package-owned evaluatorへfeatureを渡してscore/confidence/forget modifier等を返す構成が可能。
 
 ## Runtime API
-
-C++ provides:
 
 - `ScriptEvaluator`
 - `ScriptEvaluatorCase`
@@ -74,11 +80,11 @@ C++ provides:
 - `load_script_evaluator_config()`
 - `load_script_evaluator_asset()`
 
-`load_script_evaluator_asset()` resolves a `kadoka.script_evaluator.v1` asset directly from `ModelRootDescriptor`.
+`load_script_evaluator_asset()` は `ModelRootDescriptor` からassetを解決する。
 
-A runnable reference exists under `samples/script_evaluator/`.
+referenceは `samples/script_evaluator/`。
 
-The probe executable can be used without an AI engine:
+probe:
 
 ```bat
 build\Release\kadoka_script_evaluator_probe.exe ^
@@ -87,4 +93,4 @@ build\Release\kadoka_script_evaluator_probe.exe ^
   recall_delay=0.4
 ```
 
-The current implementation intentionally batches candidate evaluation to avoid launching Python once per move candidate.
+candidateごとのprocess launchを避け、batch evaluationする。
