@@ -438,8 +438,52 @@ const std::vector<DatasetEntry>& DatasetRegistry::entries() const noexcept {
     return entries_;
 }
 
+void DatasetRegistry::validate() const {
+    for (const auto& entry : entries_) {
+        validate_entry(entry);
+        if (!entry.provenance.parent_dataset) continue;
+
+        const DatasetEntry* parent = find(*entry.provenance.parent_dataset);
+        if (parent == nullptr) {
+            throw std::invalid_argument(
+                "dataset parent does not exist: " +
+                *entry.provenance.parent_dataset);
+        }
+        if (parent->provenance.board_size != entry.provenance.board_size) {
+            throw std::invalid_argument(
+                "derived dataset board_size does not match parent: " +
+                entry.dataset_id);
+        }
+        for (const auto& game_id : entry.provenance.game_ids) {
+            if (!contains_game_id(parent->provenance.game_ids, game_id)) {
+                throw std::invalid_argument(
+                    "derived dataset game_id is not present in parent: " +
+                    game_id);
+            }
+        }
+
+        std::unordered_set<std::string> ancestry;
+        ancestry.insert(entry.dataset_id);
+        const DatasetEntry* cursor = parent;
+        while (cursor != nullptr) {
+            if (!ancestry.insert(cursor->dataset_id).second) {
+                throw std::invalid_argument(
+                    "dataset parent cycle detected at: " +
+                    cursor->dataset_id);
+            }
+            if (!cursor->provenance.parent_dataset) break;
+            cursor = find(*cursor->provenance.parent_dataset);
+            if (cursor == nullptr) {
+                throw std::invalid_argument(
+                    "dataset parent chain contains unknown dataset");
+            }
+        }
+    }
+}
+
 ResolvedDatasetRecipe DatasetRegistry::resolve(
     const DatasetRecipe& recipe) const {
+    validate();
     validate_recipe_shape(recipe);
 
     ResolvedDatasetRecipe resolved;
@@ -662,6 +706,7 @@ DatasetRegistry read_dataset_registry_jsonl(std::istream& input) {
         if (line.empty()) continue;
         registry.register_dataset(parse_dataset_entry_json(line));
     }
+    registry.validate();
     return registry;
 }
 
