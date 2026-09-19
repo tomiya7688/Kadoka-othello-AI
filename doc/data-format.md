@@ -97,7 +97,7 @@ The Core API remains JSON regardless of dataset storage optimizations.
 - `schema`: `kadoka.othello.board_state`
 - `version`: 1
 - `game_id`: 対局を一意に識別するULID
-- `ply`: 成功した合法着手数。初期局面は0
+- `ply`: 正常に消化された手番数。初期局面は0
 - `board_size`
 - `cells`
 - `side_to_move`
@@ -212,10 +212,11 @@ The Core API remains JSON regardless of dataset storage optimizations.
 ### ID / index rules
 
 - `game_id`: ULID文字列
-- `ply`: 成功した合法着手数
+- `ply`: 正常に消化された手番数
 - 初期局面は `ply = 0`
-- 違法手では `ply` を増やさない
-- passでも `ply` を増やさない
+- 合法着手では `ply` を1増やす
+- passでも手番は消化されるため `ply` を1増やす
+- 違法手では手番が消化されないため `ply` を増やさない
 - `event_index`: 実際に発生したイベント通番
 - 同一 `game_id + ply` で盤面系列と補助情報をjoin可能
 - 同一plyで複数回違法手があっても `event_index` で一意化
@@ -224,10 +225,11 @@ The Core API remains JSON regardless of dataset storage optimizations.
 
 パスはOthello固有イベントとしてGameAuxへ保存する。
 
-`ply` は成功した合法着手数だけを数えるため、passでは増加しない。
+passは石を置かないが、正常に1手番を消化するため `ply` は1増える。
 
-Coreがパスを自動処理する場合でも、履歴上は明示的なeventとして残す。
-pass後に手番だけが変化した状態をBoardStateとして保存する必要がある場合は、同一`ply`に対する状態遷移として扱い、`event_index`で時系列を区別する。
+BoardState側では、pass前後で盤面の `cells` は同一のまま、`side_to_move` が次の手番へ進んだ新しいrecordを保存する。
+
+GameAux側を見ることで、その `ply` の遷移が通常着手ではなく `pass` によるものだったと判別できる。
 
 ### Separation rule
 
