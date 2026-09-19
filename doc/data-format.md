@@ -6,35 +6,49 @@ The authoritative state exchange format is `kadoka.core_state.v1`.
 
 See `doc/core-api.md` for the complete contract.
 
-A state contains only board, side to move and time:
+A Core state contains only board, side to move and time. It does **not** contain legal moves, history, evaluation, search diagnostics or training labels.
 
-```json
-{"format":"kadoka.core_state.v1","board_size":8,"cells":[0,0,0],"side_to_move":"white","time":{"black_remaining_ms":null,"white_remaining_ms":null,"move_limit_ms":null}}
-```
+## Game Record v1
 
-It does **not** contain legal moves, history, evaluation, search diagnostics or training labels.
+Actual completed games are recorded as two JSON Lines streams:
 
-## Current Headless JSONL
+- `kadoka.board_state` version 1
+- `kadoka.game_aux` version 1
 
-Until Game Record v1 in Issue #18 replaces the transitional output path, Headless JSONL writes one canonical Core-state JSON object per accepted move.
+BoardState contains the canonical position sequence plus `game_id + ply`.
 
-The old mixed `GameSnapshot` payload containing legal moves/history/result is no longer emitted.
+GameAux contains accepted moves, illegal attempts, invalid-move notifications, passes and terminal information plus `event_index`.
+
+The two streams join on `game_id + ply`.
+
+See `doc/game-record-v1.md`.
+
+## Transitional Headless state output
+
+The original Headless single-output JSONL argument remains temporarily available for compatibility. It now contains only canonical `kadoka.core_state.v1` states after accepted moves.
+
+New consumers that need actual game history should use Game Record v1 instead, because it includes:
+
+- initial position
+- pass states
+- illegal attempts / notifications
+- terminal result
+- stable game ID and ply indexing
 
 ## Dataset enrichment
 
-Dataset metadata and analysis are separate from Core state.
+Dataset metadata and analysis are separate from Core state and Game Record.
 
-Examples of enrichment that belong to Dataset/Creator tooling:
+Examples:
 
-- game/provenance IDs
+- dataset/provenance IDs
 - legal moves derived from the board
-- selected move
 - evaluations and candidate rankings
 - search statistics
-- result labels
-- relabel history
+- result/relabel labels
+- league rating context
 
-League position rows may wrap the canonical state as a nested `snapshot`, but the nested state itself remains `kadoka.core_state.v1`.
+League/Dataset tooling may reference Game Record IDs but must not add these fields to the Core state schema.
 
 ## Compression
 
