@@ -26,7 +26,7 @@ const ModelAssetDescriptor& evaluator_asset(const ModelRootDescriptor& model) {
     return *selected;
 }
 
-std::vector<ScriptEvaluatorCase> make_cases(const AdaptedAIInput& input) {
+std::vector<ScriptEvaluatorCase> make_cases(const AIInput& input) {
     if (input.board == nullptr) {
         throw std::invalid_argument("EvaluatorAI requires board input");
     }
@@ -85,11 +85,11 @@ std::string EvaluatorAI::id() const {
     return package_id_;
 }
 
-AIOutput EvaluatorAI::think(const AdaptedAIInput& input) {
+AIOutput EvaluatorAI::think(const AIInput& input) {
     return inspect(input).output;
 }
 
-AIInspection EvaluatorAI::inspect(const AdaptedAIInput& input) {
+AIInspection EvaluatorAI::inspect(const AIInput& input) {
     const auto cases = make_cases(input);
     const auto results = evaluator_.evaluate_batch(cases);
 
