@@ -34,23 +34,7 @@ std::string build_request(std::size_t request_id, const AIInput& input) {
 
     std::ostringstream out;
     out << "request " << request_id << '\n';
-    out << "size " << input.board->size() << '\n';
-    for (std::size_t row = 0; row < input.board->size(); ++row) {
-        out << "row ";
-        for (std::size_t col = 0; col < input.board->size(); ++col) {
-            const Cell cell = input.board->at({row, col});
-            out << (cell == Cell::Black ? 'B' : cell == Cell::White ? 'W' : '.');
-        }
-        out << '\n';
-    }
-
-    const std::size_t legal_count = input.legal_moves == nullptr ? 0 : input.legal_moves->size();
-    out << "legal_count " << legal_count << '\n';
-    if (input.legal_moves != nullptr) {
-        for (const Position move : *input.legal_moves) {
-            out << "legal " << move.row << ' ' << move.col << '\n';
-        }
-    }
+    out << "state " << core_state_to_json(input) << '\n';
     out << "end\n";
     return out.str();
 }
