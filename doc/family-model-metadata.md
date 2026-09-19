@@ -1,20 +1,22 @@
 # Kadoka AI Family Model Metadata
 
-`kadoka.ai_metadata.v1` is the sibling-project metadata contract shared by Kadoka Othello AI, Kadoka Shougi AI, and Kadoka Tetris AI.
+`kadoka.ai_metadata.v1` はKadoka Othello AI / Shougi AI / Tetris AIで共有するfamily-level metadata contract。
 
-It does **not** replace a game's runtime manifest, model descriptor, weights, opening book, search configuration, or other game-specific assets. It exists so model catalogs, AI Creator/Training tools, benchmark tooling, and a future cross-project Model Hub can inspect the same high-level fields without understanding every game-specific model format.
+各gameのruntime manifest、model descriptor、weights、opening book、search config等を置き換えない。
 
-## Separation of responsibilities
+目的はModel Hub / AI Creator / Training / benchmark toolingが、game固有model formatを完全理解しなくても共通metadataを読めること。
+
+## 責務分離
 
 ```text
 runtime manifest / model descriptor
-  -> how this game loads and executes the AI
+  -> このgameでAIをどうload/executeするか
 
 metadata.json (kadoka.ai_metadata.v1)
-  -> identity / origin / requirements / reproducibility / license / benchmark metadata
+  -> identity / origin / requirements / reproducibility / license / benchmark
 ```
 
-Runtime hot paths must not require this file after package loading unless a feature explicitly needs it.
+明示featureが必要としない限りRuntime hot pathはpackage load後にmetadataを要求しない。
 
 ## Required fields
 
@@ -33,58 +35,43 @@ Runtime hot paths must not require this file after package loading unless a feat
 }
 ```
 
-Required meanings:
+意味:
 
-- `format`: exactly `kadoka.ai_metadata.v1`
+- `format`: `kadoka.ai_metadata.v1`
 - `model_id`: stable machine-readable ID
 - `model_name`: display name
-- `model_version`: model/package version
-- `architecture`: high-level model family, not a C++ class name
-- `game`: `othello`, `shogi`, or `tetris`
-- `license`: string or object. An object is recommended when technical/model and character licenses differ.
+- `model_version`: package/model version
+- `architecture`: high-level family
+- `game`: `othello` / `shogi` / `tetris`
+- `license`: stringまたはobject。technical/modelとcharacter licenseが異なる場合object推奨。
 
-## Shared optional fields
+## 推奨metadata
 
-- `format_version`: version of a game-specific model/weight format when separate from this metadata format
-- `variant`: `base`, `pretrained`, `user_trained`, `external_base`, `character`, or another documented value
-- `runtime_requirements`: runtime name/version, CPU/GPU/VRAM/RAM/platform requirements
-- `search_config`: inline search profile or reference to a game-specific search asset
-- `training_recipe`: training recipe ID/version/reference
-- `dataset_provenance`: datasets, self-play sources, relabel sources, hashes, or generation IDs
-- `determinism`: seed support, deterministic mode, default seed policy
-- `benchmark_results`: versioned benchmark records; benchmark meaning stays game-specific
-- `source`: repository, revision, upstream model/source and sibling-project provenance
-- `distribution`: bundled/downloaded/user/external origin, hash and redistribution information
-- `created_at`: ISO-8601 creation or publication timestamp when known
+可能な範囲で次を持つ。
 
-Unknown fields are allowed so a game can add namespaced information without forcing a family format revision.
+- runtime requirements
+- search config
+- training recipe
+- dataset provenance
+- deterministic seed/config
+- code/model origin
+- benchmark results
+- created_at
+- parent/checkpoint
+- board-size/profile
 
-## Compatibility rules
+未知optional fieldはreaderが無視できるようにする。
 
-1. A runtime manifest remains authoritative for execution.
-2. `model_id`, `model_name`, and `model_version` should match the runtime package identity when both exist.
-3. Do not put large weights or datasets in metadata.
-4. Do not put secrets, machine-local absolute paths, or transient benchmark logs in metadata.
-5. Benchmark records must include enough context to avoid comparing unlike runs as if they were equivalent.
-6. Dataset provenance should prefer stable IDs/hashes over only human-readable names.
-7. Character licensing must remain distinguishable from technical model/code licensing.
+breaking change時だけformat versionを更新する。
 
-## Othello package integration
+## Othello package
 
-Othello `manifest.json` may reference the file with:
+Othello packageでは `manifest.json` の `metadata` pathから参照できる。
 
-```json
-"metadata": "metadata.json"
-```
+metadataはidentity/provenance用で、canonical Core API stateではない。
 
-The package loader records this path but does not require metadata for legacy packages. New distributable Kadoka models should include it.
+## 兄弟連携
 
-## Sibling-project rule
+field名・意味論を可能な範囲で兄弟間共有するが、binary weightsやgame-specific model formatまで統一必須にはしない。
 
-When this format changes, review the same revision in:
-
-- `tomiya7688/Kadoka-othello-AI`
-- `tomiya7688/Kadoka-shougi-ai`
-- `tomiya7688/kadoka_tetris_ai`
-
-Binary/model formats may remain different; the family metadata meaning should remain compatible.
+Othello側へ採用したmetadata仕様の文書は日本語を正本とする。
