@@ -27,7 +27,13 @@ The Windows artifact is currently a developer build, not yet a formally defined 
 build\Release\kadoka_othello_headless.exe 10000 8 dataset.jsonl 12345
 ```
 
-Arguments are `games board_size output.jsonl seed`.
+Arguments start with `games board_size legacy_state_output seed`.
+
+To emit the canonical two-stream Game Record v1 without the transitional state output:
+
+```bat
+build\Release\kadoka_othello_headless.exe 100 8 - 12345 - - board-state.jsonl game-aux.jsonl
+```
 
 ## AI-assisted development
 
@@ -80,6 +86,7 @@ See `doc/sibling-project-alignment.md`.
 - `doc/model-format.md` - root model descriptor and asset structure
 - `doc/script-evaluator-runtime.md` - evaluator runtimes and native in-process ABI
 - `doc/build.md` - build and runner usage
-- `doc/data-format.md` - canonical state / transitional JSON Lines output
+- `doc/data-format.md` - canonical state / Dataset format boundaries
+- `doc/game-record-v1.md` - BoardState + GameAux JSONL game history
 
 All C++ source and headers are kept under `src/`.
