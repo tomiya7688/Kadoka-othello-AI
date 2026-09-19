@@ -1,5 +1,7 @@
 # Build
 
+> この文書は日本語正本。文書言語方針は `doc/document-language-policy.md`。
+
 ## Windows
 
 リポジトリ直下の `build.bat` を実行する。
@@ -43,19 +45,32 @@ Kadoka check: 1 error(s)
 
 ビルド後の `kadoka_othello_headless` を使用する。
 
+基本引数:
+
 ```text
-kadoka_othello_headless [games] [board_size] [output.jsonl] [seed]
+kadoka_othello_headless \
+  <games> <board_size> <legacy-state-output|-> <seed> \
+  <black-manifest|-> <white-manifest|-> \
+  <board-state.jsonl|-> <game-aux.jsonl|->
 ```
 
-例:
+legacy stateだけ出す例:
 
 ```bat
 build\Release\kadoka_othello_headless.exe 10000 8 dataset.jsonl 12345
 ```
 
-引数:
+Game Record v1だけ出す例:
+
+```bat
+build\Release\kadoka_othello_headless.exe 100 8 - 12345 - - board-state.jsonl game-aux.jsonl
+```
 
 - `games`: 対局数
-- `board_size`: 6 / 8 / 10等の偶数サイズ
-- `output.jsonl`: 省略時はDatasetを書き出さない
-- `seed`: 省略または0ならランダムseed
+- `board_size`: 6 / 8 / 10等の偶数size
+- `legacy-state-output`: compatibility用canonical state JSONL。不要なら `-`
+- `seed`: 0ならnon-deterministic、固定値なら再現可能
+- black/white manifest: 省略または `-` でRandom AI
+- BoardState/GameAux: Game Record v1。2本同時指定する
+
+Record仕様は `doc/game-record-v1.md`。
