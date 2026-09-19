@@ -215,6 +215,7 @@ The Core API remains JSON regardless of dataset storage optimizations.
 - `ply`: 成功した合法着手数
 - 初期局面は `ply = 0`
 - 違法手では `ply` を増やさない
+- passでも `ply` を増やさない
 - `event_index`: 実際に発生したイベント通番
 - 同一 `game_id + ply` で盤面系列と補助情報をjoin可能
 - 同一plyで複数回違法手があっても `event_index` で一意化
@@ -223,8 +224,10 @@ The Core API remains JSON regardless of dataset storage optimizations.
 
 パスはOthello固有イベントとしてGameAuxへ保存する。
 
-Coreがパスを自動処理する場合でも、履歴上は明示的なeventとして残せるようにする。
-パス自体は石配置を伴わないため、盤面が変化しない場合でも手番遷移後のBoardStateを次のplyとして記録するかどうかは実装Issueで固定する。
+`ply` は成功した合法着手数だけを数えるため、passでは増加しない。
+
+Coreがパスを自動処理する場合でも、履歴上は明示的なeventとして残す。
+pass後に手番だけが変化した状態をBoardStateとして保存する必要がある場合は、同一`ply`に対する状態遷移として扱い、`event_index`で時系列を区別する。
 
 ### Separation rule
 
