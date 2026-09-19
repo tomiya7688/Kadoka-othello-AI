@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 
 namespace kadoka::othello {
@@ -468,36 +469,55 @@ void write_game_record_jsonl(
     }
 }
 
-GameRecord read_game_record_jsonl(
+std::vector<GameRecord> read_game_records_jsonl(
     std::istream& board_state_input,
     std::istream& game_aux_input) {
-    GameRecord record;
+    std::vector<GameRecord> records;
+    std::unordered_map<std::string, std::size_t> index_by_id;
     std::string line;
+
+    auto ensure_record = [&](const std::string& game_id) -> GameRecord& {
+        const auto found = index_by_id.find(game_id);
+        if (found != index_by_id.end()) {
+            return records[found->second];
+        }
+        const std::size_t index = records.size();
+        records.push_back(GameRecord{game_id, {}, {}});
+        index_by_id.emplace(game_id, index);
+        return records.back();
+    };
 
     while (std::getline(board_state_input, line)) {
         if (line.empty()) continue;
         BoardStateRecord state = parse_board_state_record_json(line);
-        if (record.game_id.empty()) record.game_id = state.game_id;
-        if (state.game_id != record.game_id) {
-            throw std::invalid_argument("BoardState stream contains multiple game_id values");
-        }
-        record.board_states.push_back(std::move(state));
+        ensure_record(state.game_id).board_states.push_back(std::move(state));
     }
 
     while (std::getline(game_aux_input, line)) {
         if (line.empty()) continue;
         GameAuxRecord event = parse_game_aux_record_json(line);
-        if (record.game_id.empty()) record.game_id = event.game_id;
-        if (event.game_id != record.game_id) {
-            throw std::invalid_argument("GameAux stream game_id does not match BoardState stream");
-        }
-        record.aux_events.push_back(std::move(event));
+        ensure_record(event.game_id).aux_events.push_back(std::move(event));
     }
 
-    if (record.game_id.empty()) {
-        throw std::invalid_argument("Game Record streams are empty");
+    for (const auto& record : records) {
+        if (record.board_states.empty()) {
+            throw std::invalid_argument(
+                "GameAux stream contains game_id without BoardState records");
+        }
     }
-    return record;
+    return records;
+}
+
+GameRecord read_game_record_jsonl(
+    std::istream& board_state_input,
+    std::istream& game_aux_input) {
+    std::vector<GameRecord> records =
+        read_game_records_jsonl(board_state_input, game_aux_input);
+    if (records.size() != 1) {
+        throw std::invalid_argument(
+            "single Game Record reader requires exactly one game_id");
+    }
+    return std::move(records.front());
 }
 
 GameRecordRecorder::GameRecordRecorder(
