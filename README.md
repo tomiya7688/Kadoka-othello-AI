@@ -1,45 +1,47 @@
 # Kadoka Othello AI
 
-C++ Othello core and AI development project.
+C++によるオセロCore / AI開発プロジェクト。
 
-Current core supports 6x6 / 8x8 / 10x10 through the same variable-size board implementation.
+現在のCoreは、同じ可変盤面実装で6x6 / 8x8 / 10x10に対応する。
 
-## Build on Windows
+> このリポジトリの仕様・設計・運用文書は**日本語を正本**とする。詳細は `doc/document-language-policy.md` を参照。
+
+## Windowsビルド
 
 ```bat
 build.bat
 ```
 
-The script runs the project rule checker through CMake, builds Release, and runs tests.
+CMake経由でKadoka rule checkerを実行し、ReleaseビルドとCTestまで行う。
 
 ## CI
 
-The sibling-project CI baseline is enabled:
+兄弟プロジェクト共通の検証方針を採用している。
 
-- Linux: CMake build + CTest + fixed-seed headless smoke
-- Windows: `build.bat` + fixed-seed headless smoke + developer build artifact upload
+- Linux: CMake build + CTest + fixed-seed Headless smoke
+- Windows: `build.bat` + fixed-seed Headless smoke + developer build artifact upload
 
-The Windows artifact is currently a developer build, not yet a formally defined portable distribution package.
+Windows artifactは現時点では開発者向けビルドであり、正式なportable distribution packageではない。
 
-## Headless random games
+## Headless対局
+
+従来互換のstate JSONL出力:
 
 ```bat
 build\Release\kadoka_othello_headless.exe 10000 8 dataset.jsonl 12345
 ```
 
-Arguments start with `games board_size legacy_state_output seed`.
+先頭引数は `games board_size legacy_state_output seed`。
 
-To emit the canonical two-stream Game Record v1 without the transitional state output:
+Game Record v1のBoardState/GameAuxを出力する場合:
 
 ```bat
 build\Release\kadoka_othello_headless.exe 100 8 - 12345 - - board-state.jsonl game-aux.jsonl
 ```
 
-## AI-assisted development
+## AI支援開発
 
-Start from `AI_CONTEXT.md` instead of preloading the whole repository.
-
-Useful compact-routing commands:
+リポジトリ全体を先に読み込まず、`AI_CONTEXT.md` から開始する。
 
 ```text
 python tools/context_route.py --list
@@ -47,46 +49,50 @@ python tools/context_route.py script-evaluator
 python tools/next_issue.py
 ```
 
-- `AI_CONTEXT.md` - small AI entrypoint and invariants
-- `doc/current-state.md` - compact implementation-status index
-- `doc/context-routing.md` - task/change -> source/tests/docs/validation routes
-- `tools/next_issue.py` - compact Goal / Required / Acceptance task capsule
+- `AI_CONTEXT.md`: AI支援開発の短い入口
+- `doc/current-state.md`: 現在実装の要約
+- `doc/context-routing.md`: task/changeから読むsource/tests/docs/validationを選ぶ索引
+- `tools/next_issue.py`: Goal / Required / Acceptanceを絞ったtask capsule生成
 
-These are indexes only. Source, tests, Issues and detailed specs remain the source of truth.
+これらは索引であり、source/tests/Issue/詳細仕様の代替ではない。
 
 ## Coding rules
 
-This project adopts the applicable parts of `tomiya7688/upd-commander-base-design`.
-See `doc/coding-rules.md` for project-specific rules and Runtime performance exceptions.
+`tomiya7688/upd-commander-base-design` の適用可能な考え方を採用する。
 
-C++ formatting/static-analysis baselines are shared with Kadoka Shougi AI through `.clang-format` and `.clang-tidy`.
+プロジェクト固有規約とRuntime hot path例外は `doc/coding-rules.md` を参照。
 
-## Sibling projects
+C++ formatting/static-analysisの基準は、Kadoka Shougi AIと `.clang-format` / `.clang-tidy` の考え方を共有する。
 
-Kadoka Shougi AI and Kadoka Tetris AI are sibling projects. Proven CI, validation, context-routing and architecture techniques should be cross-adopted when they solve the same problem without harming game-specific semantics or hot-path performance.
+## 兄弟プロジェクト
 
-See `doc/sibling-project-alignment.md`.
+Kadoka Shougi AI / Kadoka Tetris AIは兄弟プロジェクト。
 
-## Licensing
+CI、検証、Context Routing、Runtime/Tooling境界など、ゲーム固有意味論やhot path性能を壊さず適用できる手法は相互導入する。
 
-- Software, build scripts, and ordinary documentation: MIT License (`LICENSE`)
-- Kadoka (かどか) and Maru (まる) character materials: Obake Character License v1.1 (`CHARACTER_LICENSE.md`)
-- Other named AI-model characters, their settings, identity, and dedicated character assets: Kadoka AI Character License v1.0 (`AI_CHARACTER_LICENSE.md`)
-- A model's algorithm, trained weights, or dataset may have an additional individual license when explicitly specified.
+詳細は `doc/sibling-project-alignment.md`。
 
-## Documents
+## ライセンス
 
-- `doc/architecture.md` - responsibility boundaries and source layout
-- `doc/core-api.md` - canonical JSON Core state and invalid-move event contract
-- `doc/current-state.md` - compact current implementation state
-- `doc/context-routing.md` - context and validation routing map
-- `doc/sibling-project-alignment.md` - cross-project engineering reuse policy
-- `doc/coding-rules.md` - coding rules, dependency rules and performance exceptions
-- `doc/runtime-creator-boundary.md` - AI Runtime / AI Creator boundary
-- `doc/model-format.md` - root model descriptor and asset structure
-- `doc/script-evaluator-runtime.md` - evaluator runtimes and native in-process ABI
-- `doc/build.md` - build and runner usage
-- `doc/data-format.md` - canonical state / Dataset format boundaries
-- `doc/game-record-v1.md` - BoardState + GameAux JSONL game history
+- software / build script / 通常文書: MIT License (`LICENSE`)
+- Kadoka（かどか）/ Maru（まる）のキャラクター素材: Obake Character License v1.1 (`CHARACTER_LICENSE.md`)
+- その他の名前付きAIキャラクター、その設定・identity・専用asset: Kadoka AI Character License v1.0 (`AI_CHARACTER_LICENSE.md`)
+- model algorithm / trained weights / datasetは、明示されている場合に個別ライセンスを持てる
 
-All C++ source and headers are kept under `src/`.
+## 主要文書
+
+- `doc/document-language-policy.md`: 日本語正本ルール
+- `doc/architecture.md`: 責務境界と構成
+- `doc/core-api.md`: canonical JSON Core state / invalid-move event
+- `doc/current-state.md`: 現在実装
+- `doc/context-routing.md`: context / validation route
+- `doc/sibling-project-alignment.md`: 兄弟プロジェクト間の横展開方針
+- `doc/coding-rules.md`: coding / dependency / performance exception
+- `doc/runtime-creator-boundary.md`: AI Runtime / AI Creator境界
+- `doc/model-format.md`: model root descriptor / asset
+- `doc/script-evaluator-runtime.md`: evaluator runtime / native in-process ABI
+- `doc/build.md`: build / runner
+- `doc/data-format.md`: canonical state / Dataset境界
+- `doc/game-record-v1.md`: BoardState + GameAux JSONL
+
+C++ source/headerは `src/` 配下へ置く。
