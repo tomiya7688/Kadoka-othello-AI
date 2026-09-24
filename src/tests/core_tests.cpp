@@ -6,6 +6,7 @@
 #include "kadoka_othello/core_state.hpp"
 #include "kadoka_othello/headless.hpp"
 #include "kadoka_othello/obake_kadoka.hpp"
+#include "kadoka_othello/rules.hpp"
 #include "kadoka_othello/state.hpp"
 
 #include "test_support.hpp"
@@ -13,6 +14,34 @@
 using namespace kadoka::othello;
 
 namespace {
+
+class MetricFirstLegalAI final : public IAIEngine {
+public:
+    explicit MetricFirstLegalAI(std::string engine_id)
+        : engine_id_(std::move(engine_id)) {}
+
+    std::string id() const override {
+        return engine_id_;
+    }
+
+    AIOutput think(const AIInput& input) override {
+        KADOKA_REQUIRE(input.board != nullptr);
+        const auto legal =
+            rules::legal_moves(*input.board, input.side_to_move);
+        KADOKA_REQUIRE(!legal.empty());
+
+        AIOutput output;
+        output.move = legal.front();
+        output.metrics.nodes = 100;
+        output.metrics.simulations = 25;
+        output.metrics.depth = 4;
+        output.metrics.search_effort = 2.5;
+        return output;
+    }
+
+private:
+    std::string engine_id_;
+};
 
 void test_initial_board_sizes() {
     for (const std::size_t size : {6U, 8U, 10U}) {
@@ -152,6 +181,34 @@ void test_headless_runner() {
     KADOKA_REQUIRE(output.str().find("\"legal_moves\"") == std::string::npos);
 }
 
+void test_headless_search_metrics() {
+    HeadlessConfig config;
+    config.board_size = 6;
+    config.games = 1;
+    config.seed = 77;
+    config.write_json_lines = false;
+    config.collect_metrics = true;
+
+    MetricFirstLegalAI black("metric.black");
+    MetricFirstLegalAI white("metric.white");
+    const HeadlessSummary summary = run_games(
+        config,
+        AIPackage{&black},
+        AIPackage{&white});
+
+    KADOKA_REQUIRE(summary.ai_calls > 0);
+    KADOKA_REQUIRE(summary.node_reports == summary.ai_calls);
+    KADOKA_REQUIRE(summary.simulation_reports == summary.ai_calls);
+    KADOKA_REQUIRE(summary.depth_reports == summary.ai_calls);
+    KADOKA_REQUIRE(summary.search_effort_reports == summary.ai_calls);
+    KADOKA_REQUIRE(summary.total_nodes == summary.ai_calls * 100);
+    KADOKA_REQUIRE(summary.total_simulations == summary.ai_calls * 25);
+    KADOKA_REQUIRE(summary.max_depth == 4);
+    KADOKA_REQUIRE(
+        summary.total_search_effort ==
+        static_cast<double>(summary.ai_calls) * 2.5);
+}
+
 }  // namespace
 
 int main() {
@@ -163,5 +220,6 @@ int main() {
     test_random_ai_protocol();
     test_obake_kadoka_protocol();
     test_headless_runner();
+    test_headless_search_metrics();
     return 0;
 }
