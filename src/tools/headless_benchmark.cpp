@@ -87,6 +87,14 @@ int main(int argc, char** argv) {
         std::cout << "ai_calls=" << summary.ai_calls << '\n';
         std::cout << "average_think_us=" << average_think_us << '\n';
         std::cout << "max_think_us=" << summary.max_ai_think_us << '\n';
+        std::cout << "total_nodes=" << summary.total_nodes << '\n';
+        std::cout << "node_reports=" << summary.node_reports << '\n';
+        std::cout << "total_simulations=" << summary.total_simulations << '\n';
+        std::cout << "simulation_reports=" << summary.simulation_reports << '\n';
+        std::cout << "max_depth=" << summary.max_depth << '\n';
+        std::cout << "depth_reports=" << summary.depth_reports << '\n';
+        std::cout << "total_search_effort=" << summary.total_search_effort << '\n';
+        std::cout << "search_effort_reports=" << summary.search_effort_reports << '\n';
         std::cout << "invalid_attempts=" << summary.invalid_move_attempts << '\n';
         std::cout << "turns_with_invalid_attempts=" << summary.turns_with_invalid_attempts << '\n';
         std::cout << "average_invalid_per_turn=" << average_invalid_per_turn << '\n';
