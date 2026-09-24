@@ -279,6 +279,79 @@ if(BUILD_TESTING)
     )
 
     add_test(
+        NAME kadoka_league_registry_reset
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry_games.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry_board.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry_aux.jsonl"
+    )
+
+    add_test(
+        NAME kadoka_league_registry_add_champion
+        COMMAND kadoka_ai_league
+            registry-add
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry.jsonl"
+            champion
+            6
+            9001
+            champion-v1
+            -
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+    )
+
+    add_test(
+        NAME kadoka_league_registry_add_candidate
+        COMMAND kadoka_ai_league
+            registry-add
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry.jsonl"
+            candidate
+            6
+            9002
+            candidate-v2
+            -
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+    )
+
+    add_test(
+        NAME kadoka_league_registry_run_candidate
+        COMMAND kadoka_ai_league
+            registry-run
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry.jsonl"
+            candidate_champion
+            6
+            1
+            9900
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry_games.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry_board.jsonl"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry_aux.jsonl"
+    )
+
+    add_test(
+        NAME kadoka_league_registry_table
+        COMMAND kadoka_ai_league
+            registry-table
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/league_registry.jsonl"
+    )
+
+    set_tests_properties(
+        kadoka_league_registry_add_champion
+        PROPERTIES DEPENDS kadoka_league_registry_reset
+    )
+    set_tests_properties(
+        kadoka_league_registry_add_candidate
+        PROPERTIES DEPENDS kadoka_league_registry_add_champion
+    )
+    set_tests_properties(
+        kadoka_league_registry_run_candidate
+        PROPERTIES DEPENDS kadoka_league_registry_add_candidate
+    )
+    set_tests_properties(
+        kadoka_league_registry_table
+        PROPERTIES DEPENDS kadoka_league_registry_run_candidate
+    )
+
+    add_test(
         NAME kadoka_script_evaluator_in_process_smoke
         COMMAND kadoka_script_evaluator_probe
             "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/in_process_evaluator.json"
