@@ -113,6 +113,18 @@ Dataset Registry / Recipe / provenance / derived Dataset / training metadata。
 - Boundary: Creator Supportのみ。Runtime hot pathへDataset Registry/Recipeを依存させない。
 - Invariant: training/validation/benchmark/league_evaluation usageを混在させない。Recipe resolve時にgame_idをdedupする。
 
+### confidence
+
+confidence / uncertainty / reanalysis priority / audit sampling。
+
+- Source: `src/confidence.cpp`, `src/kadoka_othello/confidence.hpp`
+- Tests: `src/tests/confidence_tests.cpp`
+- Docs: `doc/confidence-uncertainty.md`
+- Input: Game Record / Dataset / AI analysisから派生したraw factor
+- Validation: factor JSON round-trip -> statistical helper -> calculator -> priority/audit sampler
+- Boundary: Creator/Dataset側のみ。Core state/Runtime hot pathへconfidence factorを追加しない。
+- Invariant: raw factorを保存し、calculatorを固定の正解式として扱わない。
+
 ### data-conversion
 
 JSONL/model record、dataset conversion、format mapping。
