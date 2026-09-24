@@ -95,5 +95,6 @@ CI、検証、Context Routing、Runtime/Tooling境界など、ゲーム固有意
 - `doc/data-format.md`: canonical state / Dataset境界
 - `doc/game-record-v1.md`: BoardState + GameAux JSONL
 - `doc/dataset-pool.md`: Dataset Registry / Recipe / provenance / 重複排除
+- `doc/ai-league.md`: participant Registry / Glicko / scheduler / Game Record接続
 
 C++ source/headerは `src/` 配下へ置く。
