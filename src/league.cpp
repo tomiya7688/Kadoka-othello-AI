@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "kadoka_othello/game_record.hpp"
 #include "kadoka_othello/model_descriptor.hpp"
 #include "kadoka_othello/package_loader.hpp"
 
@@ -132,7 +133,7 @@ std::uint64_t game_seed(
     return seed == 0 ? 1 : seed;
 }
 
-std::string make_game_id(
+std::string make_reproducibility_key(
     const LeagueParticipant& black,
     const LeagueParticipant& white,
     std::size_t game_index,
@@ -142,7 +143,7 @@ std::string make_game_id(
     hash_text(hash, white.participant_id);
     hash_text(hash, std::to_string(game_index));
     hash_text(hash, std::to_string(league_seed));
-    return "game-" + to_hex(hash);
+    return "run-" + to_hex(hash);
 }
 
 LeagueGameOutcome outcome_from_summary(const HeadlessSummary& summary) {
@@ -216,6 +217,8 @@ void update_ratings(
 void write_game_log(std::ostream& output, const LeagueGameRecord& record) {
     output << "{\"format\":\"kadoka.league_game.v1\""
            << ",\"game_id\":\"" << escape_json(record.game_id) << "\""
+           << ",\"reproducibility_key\":\""
+           << escape_json(record.reproducibility_key) << "\""
            << ",\"black\":\"" << escape_json(record.black_participant_id) << "\""
            << ",\"white\":\"" << escape_json(record.white_participant_id) << "\""
            << ",\"board_size\":" << record.board_size
@@ -228,6 +231,14 @@ void write_game_log(std::ostream& output, const LeagueGameRecord& record) {
            << ",\"invalid_attempts\":" << record.metrics.invalid_move_attempts
            << ",\"total_ai_think_us\":" << record.metrics.total_ai_think_us
            << ",\"max_ai_think_us\":" << record.metrics.max_ai_think_us
+           << ",\"total_nodes\":" << record.metrics.total_nodes
+           << ",\"node_reports\":" << record.metrics.node_reports
+           << ",\"total_simulations\":" << record.metrics.total_simulations
+           << ",\"simulation_reports\":" << record.metrics.simulation_reports
+           << ",\"max_depth\":" << record.metrics.max_depth
+           << ",\"depth_reports\":" << record.metrics.depth_reports
+           << ",\"total_search_effort\":" << record.metrics.total_search_effort
+           << ",\"search_effort_reports\":" << record.metrics.search_effort_reports
            << ",\"black_rating_before\":" << record.black_rating_before
            << ",\"white_rating_before\":" << record.white_rating_before
            << ",\"black_deviation_before\":" << record.black_deviation_before
@@ -264,8 +275,7 @@ LeagueGameRecord run_league_game(
     const LeagueRunConfig& config,
     LeagueRating& black_rating,
     LeagueRating& white_rating,
-    std::ostream* game_log,
-    std::ostream* position_dataset) {
+    const LeagueRunOutputs& outputs) {
     if (black.config.board_size != white.config.board_size) {
         throw std::invalid_argument("league participants must use the same board size");
     }
@@ -289,22 +299,28 @@ LeagueGameRecord run_league_game(
     headless.games = 1;
     headless.seed = config.seed;
     headless.max_invalid_attempts_per_turn = config.max_invalid_attempts_per_turn;
-    headless.write_json_lines = position_dataset != nullptr;
+    headless.write_json_lines = outputs.position_dataset != nullptr;
     headless.collect_metrics = config.collect_metrics;
+    headless.record_game_id = generate_game_ulid();
 
     std::ostringstream raw_dataset;
-    std::ostream* dataset_stream = position_dataset != nullptr ? &raw_dataset : nullptr;
+    std::ostream* dataset_stream =
+        outputs.position_dataset != nullptr ? &raw_dataset : nullptr;
 
     const auto start = std::chrono::steady_clock::now();
     const HeadlessSummary summary = run_games(
         headless,
         black_package.view(),
         white_package.view(),
-        dataset_stream);
+        dataset_stream,
+        outputs.board_state_output,
+        outputs.game_aux_output);
     const auto end = std::chrono::steady_clock::now();
 
     LeagueGameRecord record;
-    record.game_id = make_game_id(black, white, game_index, config.seed);
+    record.game_id = headless.record_game_id;
+    record.reproducibility_key =
+        make_reproducibility_key(black, white, game_index, config.seed);
     record.black_participant_id = black.participant_id;
     record.white_participant_id = white.participant_id;
     record.board_size = black.config.board_size;
@@ -325,9 +341,14 @@ LeagueGameRecord run_league_game(
     record.black_deviation_after = black_rating.deviation;
     record.white_deviation_after = white_rating.deviation;
 
-    if (game_log != nullptr) write_game_log(*game_log, record);
-    if (position_dataset != nullptr) {
-        write_position_dataset(*position_dataset, record, raw_dataset.str());
+    if (outputs.game_log != nullptr) {
+        write_game_log(*outputs.game_log, record);
+    }
+    if (outputs.position_dataset != nullptr) {
+        write_position_dataset(
+            *outputs.position_dataset,
+            record,
+            raw_dataset.str());
     }
     return record;
 }
@@ -376,69 +397,129 @@ LeagueParticipant load_league_participant(LeagueParticipantConfig config) {
     return participant;
 }
 
+LeagueRunResult run_league_schedule(
+    const std::vector<LeagueParticipant>& participants,
+    const std::vector<LeagueRating>& initial_ratings,
+    const std::vector<LeaguePairing>& pairings,
+    const LeagueRunConfig& config,
+    const LeagueRunOutputs& outputs) {
+    if (participants.size() < 2) {
+        throw std::invalid_argument(
+            "league requires at least two participants");
+    }
+    if (initial_ratings.size() != participants.size()) {
+        throw std::invalid_argument(
+            "initial rating count must match participant count");
+    }
+    if (pairings.empty()) {
+        throw std::invalid_argument(
+            "league schedule must contain at least one pairing");
+    }
+    if (config.games_per_color == 0) {
+        throw std::invalid_argument(
+            "games_per_color must be greater than zero");
+    }
+    if ((outputs.board_state_output == nullptr) !=
+        (outputs.game_aux_output == nullptr)) {
+        throw std::invalid_argument(
+            "League Game Record requires both BoardState and GameAux outputs");
+    }
+
+    const std::size_t board_size =
+        participants.front().config.board_size;
+    for (const auto& participant : participants) {
+        if (participant.config.board_size != board_size) {
+            throw std::invalid_argument(
+                "one league run requires one board size");
+        }
+    }
+
+    LeagueRunResult result;
+    std::vector<LeagueRating> ratings = initial_ratings;
+    std::size_t game_index = 0;
+
+    for (const LeaguePairing pairing : pairings) {
+        if (pairing.first >= participants.size() ||
+            pairing.second >= participants.size() ||
+            pairing.first == pairing.second) {
+            throw std::invalid_argument(
+                "league schedule contains invalid participant indexes");
+        }
+
+        for (std::size_t round = 0;
+             round < config.games_per_color;
+             ++round) {
+            result.games.push_back(run_league_game(
+                participants[pairing.first],
+                participants[pairing.second],
+                game_index++,
+                config,
+                ratings[pairing.first],
+                ratings[pairing.second],
+                outputs));
+
+            result.games.push_back(run_league_game(
+                participants[pairing.second],
+                participants[pairing.first],
+                game_index++,
+                config,
+                ratings[pairing.second],
+                ratings[pairing.first],
+                outputs));
+        }
+    }
+
+    result.table.reserve(participants.size());
+    for (std::size_t i = 0; i < participants.size(); ++i) {
+        result.table.push_back(
+            LeagueTableEntry{participants[i], ratings[i]});
+    }
+    std::sort(
+        result.table.begin(),
+        result.table.end(),
+        [](const LeagueTableEntry& lhs,
+           const LeagueTableEntry& rhs) {
+            if (lhs.rating.rating != rhs.rating.rating) {
+                return lhs.rating.rating > rhs.rating.rating;
+            }
+            return lhs.participant.participant_id <
+                rhs.participant.participant_id;
+        });
+    return result;
+}
+
 LeagueRunResult run_round_robin_league(
     const std::vector<LeagueParticipant>& participants,
     const LeagueRunConfig& config,
     std::ostream* game_log,
     std::ostream* position_dataset) {
     if (participants.size() < 2) {
-        throw std::invalid_argument("league requires at least two participants");
-    }
-    if (config.games_per_color == 0) {
-        throw std::invalid_argument("games_per_color must be greater than zero");
+        throw std::invalid_argument(
+            "league requires at least two participants");
     }
 
-    const std::size_t board_size = participants.front().config.board_size;
-    for (const auto& participant : participants) {
-        if (participant.config.board_size != board_size) {
-            throw std::invalid_argument("round-robin league requires one board size per run");
+    std::vector<LeaguePairing> pairings;
+    for (std::size_t first = 0;
+         first < participants.size();
+         ++first) {
+        for (std::size_t second = first + 1;
+             second < participants.size();
+             ++second) {
+            pairings.push_back({first, second});
         }
     }
 
-    LeagueRunResult result;
-    std::vector<LeagueRating> ratings(participants.size());
-    std::size_t game_index = 0;
-
-    for (std::size_t first = 0; first < participants.size(); ++first) {
-        for (std::size_t second = first + 1; second < participants.size(); ++second) {
-            for (std::size_t round = 0; round < config.games_per_color; ++round) {
-                result.games.push_back(run_league_game(
-                    participants[first],
-                    participants[second],
-                    game_index++,
-                    config,
-                    ratings[first],
-                    ratings[second],
-                    game_log,
-                    position_dataset));
-
-                result.games.push_back(run_league_game(
-                    participants[second],
-                    participants[first],
-                    game_index++,
-                    config,
-                    ratings[second],
-                    ratings[first],
-                    game_log,
-                    position_dataset));
-            }
-        }
-    }
-
-    result.table.reserve(participants.size());
-    for (std::size_t i = 0; i < participants.size(); ++i) {
-        result.table.push_back(LeagueTableEntry{participants[i], ratings[i]});
-    }
-    std::sort(
-        result.table.begin(),
-        result.table.end(),
-        [](const LeagueTableEntry& lhs, const LeagueTableEntry& rhs) {
-            if (lhs.rating.rating != rhs.rating.rating) {
-                return lhs.rating.rating > rhs.rating.rating;
-            }
-            return lhs.participant.participant_id < rhs.participant.participant_id;
+    return run_league_schedule(
+        participants,
+        std::vector<LeagueRating>(participants.size()),
+        pairings,
+        config,
+        LeagueRunOutputs{
+            game_log,
+            position_dataset,
+            nullptr,
+            nullptr,
         });
-    return result;
 }
 
 }  // namespace kadoka::othello
