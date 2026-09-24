@@ -61,6 +61,13 @@ int main(int argc, char** argv) {
         KADOKA_REQUIRE(is_legal(second.output.move, legal_moves));
         KADOKA_REQUIRE(diagnostic_value(first, "request_count") == "1");
         KADOKA_REQUIRE(diagnostic_value(second, "request_count") == "2");
+        KADOKA_REQUIRE(first.output.metrics.nodes == 1234);
+        KADOKA_REQUIRE(first.output.metrics.simulations == 56);
+        KADOKA_REQUIRE(first.output.metrics.depth == 7);
+        KADOKA_REQUIRE(first.output.metrics.search_effort.has_value());
+        KADOKA_REQUIRE(
+            *first.output.metrics.search_effort > 1.49 &&
+            *first.output.metrics.search_effort < 1.51);
     }
 
     {
