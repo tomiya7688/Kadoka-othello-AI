@@ -2,8 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <random>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "kadoka_othello/core_state.hpp"
@@ -12,9 +14,22 @@ namespace kadoka::othello {
 
 using AIInput = CoreStateView;
 
+struct AIMoveMetrics {
+    std::optional<std::uint64_t> nodes;
+    std::optional<std::uint64_t> simulations;
+    std::optional<std::size_t> depth;
+    std::optional<double> search_effort;
+};
+
 struct AIOutput {
     Position move{};
+    AIMoveMetrics metrics;
 };
+
+void apply_standard_ai_metric(
+    AIOutput& output,
+    std::string_view key,
+    std::string_view value);
 
 struct AICandidate {
     Position move{};
