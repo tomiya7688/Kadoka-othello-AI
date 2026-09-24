@@ -96,5 +96,6 @@ CI、検証、Context Routing、Runtime/Tooling境界など、ゲーム固有意
 - `doc/game-record-v1.md`: BoardState + GameAux JSONL
 - `doc/dataset-pool.md`: Dataset Registry / Recipe / provenance / 重複排除
 - `doc/ai-league.md`: participant Registry / Glicko / scheduler / Game Record接続
+- `doc/confidence-uncertainty.md`: confidence / uncertainty / 再評価priority / audit
 
 C++ source/headerは `src/` 配下へ置く。
