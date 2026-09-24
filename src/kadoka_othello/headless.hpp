@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
+#include <string>
 #include <vector>
 
 #include "kadoka_othello/ai.hpp"
@@ -17,6 +18,10 @@ struct HeadlessConfig {
     std::size_t max_invalid_attempts_per_turn{1024};
     bool write_json_lines{true};
     bool collect_metrics{false};
+
+    // Optional explicit ID for a single-game Game Record. Empty means the
+    // recorder generates a ULID.
+    std::string record_game_id;
 };
 
 struct HeadlessSummary {
@@ -31,6 +36,16 @@ struct HeadlessSummary {
     std::size_t max_invalid_attempts_in_turn{};
     double total_ai_think_us{};
     double max_ai_think_us{};
+
+    std::uint64_t total_nodes{};
+    std::uint64_t total_simulations{};
+    std::size_t max_depth{};
+    double total_search_effort{};
+    std::size_t node_reports{};
+    std::size_t simulation_reports{};
+    std::size_t depth_reports{};
+    std::size_t search_effort_reports{};
+
     std::vector<std::size_t> invalid_attempt_histogram;
 };
 
