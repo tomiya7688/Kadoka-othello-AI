@@ -176,7 +176,10 @@ public:
                 parser >> pair;
                 const std::size_t equals = pair.find('=');
                 if (equals != std::string::npos) {
-                    inspection.diagnostics.push_back({pair.substr(0, equals), pair.substr(equals + 1)});
+                    const std::string key = pair.substr(0, equals);
+                    const std::string value = pair.substr(equals + 1);
+                    inspection.diagnostics.push_back({key, value});
+                    apply_standard_ai_metric(inspection.output, key, value);
                 }
             } else if (kind == "candidate") {
                 AICandidate candidate;
