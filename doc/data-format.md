@@ -80,3 +80,14 @@ training / validation / benchmark / league_evaluationはusage fieldで分離し�
 複数Datasetに同じ `game_id` が含まれていても、resolved Recipeでは1 gameだけ残す。
 
 詳細: `doc/dataset-pool.md`
+
+
+## Confidence sample
+
+再評価優先度に使用するanalysis dataは `kadoka.confidence_sample.v1` としてCore state/Game Recordから分離する。
+
+保存するのは `game_id + ply + board_size` とextensibleなnumeric factor map。
+
+confidence値そのものよりraw factorを優先して保存し、後からcalculatorを差し替え可能にする。
+
+詳細: `doc/confidence-uncertainty.md`
