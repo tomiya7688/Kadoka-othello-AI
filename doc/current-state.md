@@ -94,6 +94,18 @@
 - `kadoka_dataset_tool` でvalidate / plan / attach-recipe。
 - Dataset PoolはCreator Support側にありRuntime-only buildへ依存しない。
 
+### Confidence / Uncertainty
+
+- `kadoka.confidence_sample.v1` でgame_id / ply / board_size + extensible raw factor mapを保存可能。
+- `IConfidenceCalculator` によりconfidence計算式を差し替え可能。
+- `BaselineConfidenceCalculator` はreference implementationとして実装。
+- 標準factor: rating/RD、depth/nodes/simulations/time、candidate gap、policy entropy、multi-AI disagreement、Monte Carlo variance、mobility/frontier/corner/parity/stable-disc系、exact endgame agreement等。
+- policy entropy / move disagreement / value stddev / sample variance helper。
+- 6x6 / 8x8 / 10x10別 `ConfidenceBoardParameters`。
+- low-confidence / disagreement / close-candidate / exact candidateを優先するreanalysis sampler。
+- high-confidence sampleもseed付きrandom audit可能。
+- confidence toolingはCreator/Dataset側で、Runtime hot pathへ依存しない。
+
 ### AI Creator / Tooling
 
 - analyze / batch analyze / compare / benchmark。
