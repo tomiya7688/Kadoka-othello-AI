@@ -68,3 +68,28 @@ JSONがAPI上の正であることと、native hot pathで毎回serializeする�
 - external transport: `core_state_to_json()`
 
 bitboard、fixed buffer、SIMD layout、tensor等を内部派生してよいが、別のpublic Core APIにしない。
+
+
+## Standard Runtime metrics
+
+`AIOutput` はmove proposalに加えてoptionalな軽量metricsを持てる。
+
+- `nodes`
+- `simulations`
+- `depth`
+- `search_effort`
+
+metricsはGame ruleやCore stateではない。
+
+Headless/Leagueが `collect_metrics=true` の場合だけ集計し、未報告AIはreport count 0として区別する。
+
+external/script backendは次のdiagnostic keyを返すとstandard metricsへ変換される。
+
+```text
+diag nodes=12345
+diag simulations=800
+diag depth=7
+diag search_effort=1.5
+```
+
+unknown diagnosticは通常の `AIInspection::diagnostics` として保持できる。
