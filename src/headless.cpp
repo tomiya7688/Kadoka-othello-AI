@@ -2,6 +2,7 @@
 
 #include "kadoka_othello/game_record.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <ostream>
@@ -36,6 +37,23 @@ AIOutput invoke_with_optional_timing(
     summary.total_ai_think_us += elapsed_us;
     if (elapsed_us > summary.max_ai_think_us) {
         summary.max_ai_think_us = elapsed_us;
+    }
+
+    if (output.metrics.nodes) {
+        summary.total_nodes += *output.metrics.nodes;
+        ++summary.node_reports;
+    }
+    if (output.metrics.simulations) {
+        summary.total_simulations += *output.metrics.simulations;
+        ++summary.simulation_reports;
+    }
+    if (output.metrics.depth) {
+        summary.max_depth = std::max(summary.max_depth, *output.metrics.depth);
+        ++summary.depth_reports;
+    }
+    if (output.metrics.search_effort) {
+        summary.total_search_effort += *output.metrics.search_effort;
+        ++summary.search_effort_reports;
     }
     return output;
 }
@@ -83,6 +101,10 @@ HeadlessSummary run_games(
         throw std::invalid_argument(
             "Headless Game Record requires both BoardState and GameAux outputs");
     }
+    if (!config.record_game_id.empty() && config.games != 1) {
+        throw std::invalid_argument(
+            "explicit Headless record_game_id requires games == 1");
+    }
 
     HeadlessSummary summary;
     summary.games = config.games;
@@ -97,7 +119,9 @@ HeadlessSummary run_games(
 
         std::unique_ptr<GameRecordRecorder> recorder;
         if (board_state_output != nullptr) {
-            recorder = std::make_unique<GameRecordRecorder>(game);
+            recorder = std::make_unique<GameRecordRecorder>(
+                game,
+                config.record_game_id);
         }
 
         while (game.status() == GameStatus::Playing) {
