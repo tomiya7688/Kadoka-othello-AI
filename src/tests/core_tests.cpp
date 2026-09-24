@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "kadoka_othello/ai.hpp"
 #include "kadoka_othello/core_state.hpp"
