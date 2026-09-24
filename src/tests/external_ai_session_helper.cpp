@@ -78,6 +78,10 @@ int main(int argc, char** argv) {
                       << legal_moves.front().col << '\n';
         }
         std::cout << "diag request_count=" << request_count << '\n';
+        std::cout << "diag nodes=1234\n";
+        std::cout << "diag simulations=56\n";
+        std::cout << "diag depth=7\n";
+        std::cout << "diag search_effort=1.5\n";
         std::cout << "end\n" << std::flush;
     }
 
