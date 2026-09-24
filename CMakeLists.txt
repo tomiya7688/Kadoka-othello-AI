@@ -109,6 +109,7 @@ if(KADOKA_BUILD_AI_CREATOR)
         src/model_data.cpp
         src/conversion.cpp
         src/dataset_pool.cpp
+        src/confidence.cpp
     )
 
     target_include_directories(kadoka_othello_creator_support
@@ -446,6 +447,20 @@ if(BUILD_TESTING)
         add_test(
             NAME kadoka_dataset_pool_tests
             COMMAND kadoka_dataset_pool_tests
+        )
+
+        add_executable(kadoka_confidence_tests
+            src/tests/confidence_tests.cpp
+        )
+
+        target_link_libraries(kadoka_confidence_tests
+            PRIVATE
+                kadoka_othello_creator_support
+        )
+
+        add_test(
+            NAME kadoka_confidence_tests
+            COMMAND kadoka_confidence_tests
         )
 
         add_test(
