@@ -43,7 +43,13 @@ enum class LeagueGameOutcome {
 };
 
 struct LeagueGameRecord {
+    // ULID shared with Game Record v1 when BoardState/GameAux output is enabled.
     std::string game_id;
+
+    // Deterministic key derived from participants/config for reproduction and
+    // duplicate-run analysis. It is not the Game Record primary key.
+    std::string reproducibility_key;
+
     std::string black_participant_id;
     std::string white_participant_id;
     std::size_t board_size{};
@@ -63,7 +69,7 @@ struct LeagueGameRecord {
 };
 
 struct LeagueRunConfig {
-    // One means A-vs-B and B-vs-A once each.
+    // One means each scheduled pair plays both colors once.
     std::size_t games_per_color{1};
     std::uint64_t seed{1};
     std::size_t max_invalid_attempts_per_turn{1024};
@@ -80,8 +86,31 @@ struct LeagueRunResult {
     std::vector<LeagueTableEntry> table;
 };
 
+struct LeaguePairing {
+    std::size_t first{};
+    std::size_t second{};
+};
+
+struct LeagueRunOutputs {
+    std::ostream* game_log{nullptr};
+
+    // Transitional compatibility stream. New Dataset work should prefer the
+    // Game Record v1 streams below.
+    std::ostream* position_dataset{nullptr};
+
+    std::ostream* board_state_output{nullptr};
+    std::ostream* game_aux_output{nullptr};
+};
+
 [[nodiscard]] LeagueParticipant load_league_participant(
     LeagueParticipantConfig config);
+
+[[nodiscard]] LeagueRunResult run_league_schedule(
+    const std::vector<LeagueParticipant>& participants,
+    const std::vector<LeagueRating>& initial_ratings,
+    const std::vector<LeaguePairing>& pairings,
+    const LeagueRunConfig& config,
+    const LeagueRunOutputs& outputs = {});
 
 [[nodiscard]] LeagueRunResult run_round_robin_league(
     const std::vector<LeagueParticipant>& participants,
@@ -89,6 +118,7 @@ struct LeagueRunResult {
     std::ostream* game_log = nullptr,
     std::ostream* position_dataset = nullptr);
 
-[[nodiscard]] const char* league_outcome_name(LeagueGameOutcome outcome) noexcept;
+[[nodiscard]] const char* league_outcome_name(
+    LeagueGameOutcome outcome) noexcept;
 
 }  // namespace kadoka::othello
