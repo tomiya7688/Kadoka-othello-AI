@@ -76,7 +76,10 @@ AIInspection parse_response(
             if (equals == std::string::npos) {
                 throw std::runtime_error("external AI response contains malformed diagnostic");
             }
-            inspection.diagnostics.push_back({pair.substr(0, equals), pair.substr(equals + 1)});
+            const std::string key = pair.substr(0, equals);
+            const std::string value = pair.substr(equals + 1);
+            inspection.diagnostics.push_back({key, value});
+            apply_standard_ai_metric(inspection.output, key, value);
         } else if (kind == "candidate") {
             AICandidate candidate;
             if (!(parser >> candidate.move.row >> candidate.move.col >> candidate.value >> candidate.policy)) {
