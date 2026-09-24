@@ -88,6 +88,18 @@ model root descriptor、package manifest、asset resolution、compatibility。
 - Docs: `doc/obake-maru.md`
 - Invariant: MaruはKadokaより弱く、記憶は極端に短く保つ。
 
+### ai-league
+
+AI participant identity、rating、Registry、scheduler、League log / Game Record接続。
+
+- Source: `src/league.cpp`, `src/league_registry.cpp`, `src/league_scheduler.cpp`, 対応header
+- Tool: `src/tools/ai_league_main.cpp`
+- Tests: `src/tests/league_tests.cpp`, League Registry CLI smoke
+- Docs: `doc/ai-league.md`, `doc/game-record-v1.md`
+- Validation: League unit test -> Registry CLI smoke -> Game Record output -> broad Release CTest
+- Boundary: League SupportはRuntime/Headlessを利用するがRuntime本体へrating/schedulerを入れない。
+- Invariant: AI proposalはGame Coreで検証し、色交換・seed・participant fingerprintを維持する。
+
 ### dataset-pool
 
 Dataset Registry / Recipe / provenance / derived Dataset / training metadata。
