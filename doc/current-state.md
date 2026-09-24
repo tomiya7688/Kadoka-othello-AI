@@ -65,6 +65,21 @@
 - Kadokaより弱いlocal-interest evaluator + 高randomness。
 - 直前のrejectだけ覚える。
 
+### AI League
+
+- 設定・asset内容をfingerprintしたparticipant ID。
+- online Glicko + rating deviation。
+- persistent `kadoka.league_registry.v1` JSONL。
+- participant role: standard / champion / candidate / hall_of_fame。
+- optional checkpoint ID。
+- round-robin / random / rating-band / Candidate-vs-Champion / Candidate-vs-Hall-of-Fame scheduler。
+- scheduled pairは色交換対局を実行。
+- Registry-run後にrating/RDを永続化。
+- League game logはULID `game_id` とdeterministic `reproducibility_key` を分離。
+- Game Record v1のBoardState/GameAuxとLeague logで同じgame_idを使用可能。
+- optional Runtime metrics: think time / nodes / simulations / depth / search_effort。
+- legacy League position streamはcompatibilityとして維持し、新Dataset経路はGame Record + Dataset Poolを優先。
+
 ### Dataset Pool / Recipe
 
 - `kadoka.dataset_entry.v1` Dataset Registry JSONL。
