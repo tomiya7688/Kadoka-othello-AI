@@ -80,6 +80,8 @@ target_link_libraries(kadoka_headless_benchmark
 # same packaged AI/headless path without becoming a dependency of game binaries.
 add_library(kadoka_othello_league_support
     src/league.cpp
+    src/league_registry.cpp
+    src/league_scheduler.cpp
 )
 
 target_link_libraries(kadoka_othello_league_support
