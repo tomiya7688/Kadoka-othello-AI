@@ -35,6 +35,7 @@ struct AICandidate {
     Position move{};
     double value{};
     double policy{};
+    std::optional<double> q;
 };
 
 struct AIDiagnostic {
