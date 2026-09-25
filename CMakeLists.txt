@@ -110,6 +110,7 @@ if(KADOKA_BUILD_AI_CREATOR)
         src/conversion.cpp
         src/dataset_pool.cpp
         src/confidence.cpp
+        src/relabel.cpp
     )
 
     target_include_directories(kadoka_othello_creator_support
@@ -461,6 +462,22 @@ if(BUILD_TESTING)
         add_test(
             NAME kadoka_confidence_tests
             COMMAND kadoka_confidence_tests
+        )
+
+        add_executable(kadoka_relabel_tests
+            src/tests/relabel_tests.cpp
+        )
+
+        target_link_libraries(kadoka_relabel_tests
+            PRIVATE
+                kadoka_othello_creator_support
+        )
+
+        add_test(
+            NAME kadoka_relabel_tests
+            COMMAND kadoka_relabel_tests
+                "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
+                "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/manifest.json"
         )
 
         add_test(
