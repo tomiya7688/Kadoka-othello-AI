@@ -184,6 +184,8 @@ public:
             } else if (kind == "candidate") {
                 AICandidate candidate;
                 parser >> candidate.move.row >> candidate.move.col >> candidate.value >> candidate.policy;
+                double q = 0.0;
+                if (parser >> q) candidate.q = q;
                 inspection.candidates.push_back(candidate);
             }
         }
