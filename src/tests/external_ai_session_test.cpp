@@ -68,6 +68,11 @@ int main(int argc, char** argv) {
         KADOKA_REQUIRE(
             *first.output.metrics.search_effort > 1.49 &&
             *first.output.metrics.search_effort < 1.51);
+        KADOKA_REQUIRE(first.candidates.size() == 1);
+        KADOKA_REQUIRE(first.candidates[0].q.has_value());
+        KADOKA_REQUIRE(
+            *first.candidates[0].q > 0.54 &&
+            *first.candidates[0].q < 0.56);
     }
 
     {
