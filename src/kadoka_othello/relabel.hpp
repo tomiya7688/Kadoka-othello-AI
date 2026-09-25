@@ -10,6 +10,7 @@
 #include "kadoka_othello/ai.hpp"
 #include "kadoka_othello/confidence.hpp"
 #include "kadoka_othello/core_state.hpp"
+#include "kadoka_othello/dataset_pool.hpp"
 #include "kadoka_othello/game_record.hpp"
 
 namespace kadoka::othello {
@@ -180,5 +181,13 @@ default_relabel_board_parameters();
 void write_relabel_jsonl(
     const RelabelBatchResult& result,
     std::ostream& output);
+
+[[nodiscard]] DatasetEntry make_relabelled_dataset_entry(
+    const DatasetEntry& parent,
+    std::string dataset_id,
+    std::string relabel_run_id,
+    std::string created_at,
+    std::string relabel_artifact,
+    const RelabelBatchResult& result);
 
 }  // namespace kadoka::othello
