@@ -125,6 +125,19 @@ confidence / uncertainty / reanalysis priority / audit sampling。
 - Boundary: Creator/Dataset側のみ。Core state/Runtime hot pathへconfidence factorを追加しない。
 - Invariant: raw factorを保存し、calculatorを固定の正解式として扱わない。
 
+### relabel
+
+Multi-engine Relabeling、active re-evaluation、exact endgame、provenance。
+
+- Source: `src/relabel.cpp`, `src/kadoka_othello/relabel.hpp`
+- Tool: `src/tools/relabel_tool_main.cpp`
+- Samples: `samples/relabel/`
+- Tests: `src/tests/relabel_tests.cpp`, Relabel Tool smoke
+- Docs: `doc/multi-engine-relabeling.md`, `doc/confidence-uncertainty.md`, `doc/dataset-pool.md`
+- Validation: multi-engine result -> AllLegal/TopK -> exact budget -> 6/8/10 -> Dataset provenance -> CLI smoke
+- Boundary: Creator/Dataset側のみ。exact solver / relabel orchestrationをRuntime hot pathへ入れない。
+- Invariant: engine disagreementを単一多数決へ潰さず、exactと推定labelを区別する。
+
 ### data-conversion
 
 JSONL/model record、dataset conversion、format mapping。
