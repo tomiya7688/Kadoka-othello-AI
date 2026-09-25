@@ -56,6 +56,8 @@ struct LeagueGameRecord {
     std::uint64_t black_seed{};
     std::uint64_t white_seed{};
     LeagueGameOutcome outcome{LeagueGameOutcome::Draw};
+    std::size_t black_discs{};
+    std::size_t white_discs{};
     double elapsed_us{};
     HeadlessSummary metrics;
     double black_rating_before{};
