@@ -142,6 +142,15 @@ if(KADOKA_BUILD_AI_CREATOR)
         PRIVATE
             kadoka_othello_creator_support
     )
+
+    add_executable(kadoka_relabel_tool
+        src/tools/relabel_tool_main.cpp
+    )
+
+    target_link_libraries(kadoka_relabel_tool
+        PRIVATE
+            kadoka_othello_creator_support
+    )
 endif()
 
 add_executable(kadoka_script_evaluator_probe
@@ -478,6 +487,24 @@ if(BUILD_TESTING)
             COMMAND kadoka_relabel_tests
                 "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json"
                 "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/obake_kadoka/manifest.json"
+        )
+
+        add_test(
+            NAME kadoka_relabel_tool_smoke
+            COMMAND kadoka_relabel_tool
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/relabel/board_state.jsonl"
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/relabel/game_aux.jsonl"
+                "${CMAKE_CURRENT_SOURCE_DIR}/samples/relabel/confidence.jsonl"
+                "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/relabel_output.jsonl"
+                sample-raw
+                1
+                1
+                1000
+                10000
+                all
+                8
+                12345
+                "${CMAKE_CURRENT_SOURCE_DIR}/src/packages/random/manifest.json,1700,60,777,smoke"
         )
 
         add_test(
