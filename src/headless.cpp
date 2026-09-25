@@ -22,6 +22,7 @@ AIPackage package_for_player(
 AIOutput invoke_with_optional_timing(
     const HeadlessConfig& config,
     HeadlessSummary& summary,
+    Player player,
     AIPackage package,
     const AIInput& input) {
     if (!config.collect_metrics) {
@@ -39,21 +40,40 @@ AIOutput invoke_with_optional_timing(
         summary.max_ai_think_us = elapsed_us;
     }
 
+    HeadlessAIMetrics& player_metrics =
+        player == Player::Black
+            ? summary.black_ai_metrics
+            : summary.white_ai_metrics;
+    ++player_metrics.calls;
+    player_metrics.total_think_us += elapsed_us;
+    player_metrics.max_think_us =
+        std::max(player_metrics.max_think_us, elapsed_us);
+
     if (output.metrics.nodes) {
         summary.total_nodes += *output.metrics.nodes;
         ++summary.node_reports;
+        player_metrics.total_nodes += *output.metrics.nodes;
+        ++player_metrics.node_reports;
     }
     if (output.metrics.simulations) {
         summary.total_simulations += *output.metrics.simulations;
         ++summary.simulation_reports;
+        player_metrics.total_simulations += *output.metrics.simulations;
+        ++player_metrics.simulation_reports;
     }
     if (output.metrics.depth) {
         summary.max_depth = std::max(summary.max_depth, *output.metrics.depth);
         ++summary.depth_reports;
+        player_metrics.max_depth =
+            std::max(player_metrics.max_depth, *output.metrics.depth);
+        ++player_metrics.depth_reports;
     }
     if (output.metrics.search_effort) {
         summary.total_search_effort += *output.metrics.search_effort;
         ++summary.search_effort_reports;
+        player_metrics.total_search_effort +=
+            *output.metrics.search_effort;
+        ++player_metrics.search_effort_reports;
     }
     return output;
 }
@@ -146,6 +166,7 @@ HeadlessSummary run_games(
                 const AIOutput output = invoke_with_optional_timing(
                     config,
                     summary,
+                    game.current_player(),
                     current,
                     input);
                 if (game.play(output.move)) {
@@ -177,6 +198,14 @@ HeadlessSummary run_games(
         if (!result) {
             throw std::runtime_error("finished headless game has no result");
         }
+
+        summary.total_black_discs +=
+            result->black_discs;
+        summary.total_white_discs +=
+            result->white_discs;
+        summary.total_disc_difference +=
+            static_cast<std::int64_t>(result->black_discs) -
+            static_cast<std::int64_t>(result->white_discs);
 
         if (result->winner == Winner::Black) {
             ++summary.black_wins;
