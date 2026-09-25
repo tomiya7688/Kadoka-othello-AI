@@ -225,6 +225,8 @@ void write_game_log(std::ostream& output, const LeagueGameRecord& record) {
            << ",\"black_seed\":" << record.black_seed
            << ",\"white_seed\":" << record.white_seed
            << ",\"outcome\":\"" << league_outcome_name(record.outcome) << "\""
+           << ",\"black_discs\":" << record.black_discs
+           << ",\"white_discs\":" << record.white_discs
            << ",\"elapsed_us\":" << record.elapsed_us
            << ",\"turns\":" << record.metrics.turns
            << ",\"ai_calls\":" << record.metrics.ai_calls
@@ -327,6 +329,8 @@ LeagueGameRecord run_league_game(
     record.black_seed = black_seed;
     record.white_seed = white_seed;
     record.outcome = outcome_from_summary(summary);
+    record.black_discs = summary.total_black_discs;
+    record.white_discs = summary.total_white_discs;
     record.elapsed_us = std::chrono::duration<double, std::micro>(end - start).count();
     record.metrics = summary;
     record.black_rating_before = black_rating.rating;
