@@ -94,12 +94,15 @@ struct RelabelExactResult {
 struct RelabelBoardAnalysis {
     std::size_t legal_move_count{};
     std::size_t opponent_legal_move_count{};
+    std::size_t potential_mobility_self{};
+    std::size_t potential_mobility_opponent{};
     std::size_t frontier_self{};
     std::size_t frontier_opponent{};
     std::size_t stable_corner_self{};
     std::size_t stable_corner_opponent{};
     std::size_t empty_count{};
     int mobility_difference{};
+    int potential_mobility_difference{};
     int frontier_difference{};
     int stable_corner_difference{};
     int corner_availability_difference{};
