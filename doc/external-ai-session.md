@@ -106,7 +106,7 @@ legal-move listは送らない。必要なexternal AIがboard + side-to-moveか�
 result 1
 move 2 3
 diag source=my_ai
-candidate 2 3 1.25 0.80
+candidate 2 3 1.25 0.80 1.05
 candidate 3 2 1.10 0.20
 end
 ```
@@ -120,7 +120,9 @@ end
 optional:
 
 - `diag key=value`
-- `candidate row col value policy`
+- `candidate row col value policy [q]`
+
+`q` はoptional。
 
 unknown/malformed recordは黙って受理せずrejectする。
 
