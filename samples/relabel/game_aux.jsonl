@@ -1,0 +1,1 @@
+{"schema":"kadoka.game_aux","version":1,"game_id":"01ARZ3NDEKTSV4RRFFQ69G5FB3","ply":1,"event_index":0,"event_type":"accepted_move","actor":"black","action":{"type":"move","row":1,"col":2},"result":{"status":"accepted","reason":null},"terminal":null}
