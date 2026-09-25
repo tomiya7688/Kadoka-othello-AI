@@ -320,6 +320,7 @@ find_engine_candidate(
             result.move = move;
             result.value = candidate.value;
             result.policy = candidate.policy;
+            result.q = candidate.q;
             return result;
         }
     }
@@ -364,7 +365,7 @@ filter_engine_candidates(
             candidate.move,
             candidate.value,
             candidate.policy,
-            std::nullopt,
+            candidate.q,
             false,
         });
     }
