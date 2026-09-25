@@ -74,7 +74,14 @@ void KadokaJsonlCodec::write(std::ostream& output, const ModelRecord& record) co
         output << '{' << "\"move\":";
         write_position(output, record.candidates[i].move);
         output << ",\"value\":" << std::setprecision(17) << record.candidates[i].value;
-        output << ",\"policy\":" << std::setprecision(17) << record.candidates[i].policy << '}';
+        output << ",\"policy\":" << std::setprecision(17) << record.candidates[i].policy;
+        output << ",\"q\":";
+        if (record.candidates[i].q) {
+            output << std::setprecision(17) << *record.candidates[i].q;
+        } else {
+            output << "null";
+        }
+        output << '}';
     }
     output << "],";
 
@@ -102,7 +109,12 @@ ModelRecord make_model_record(
     record.selected_move = inspection.output.move;
     record.diagnostics = inspection.diagnostics;
     for (const auto& candidate : inspection.candidates) {
-        record.candidates.push_back({candidate.move, candidate.value, candidate.policy});
+        record.candidates.push_back({
+            candidate.move,
+            candidate.value,
+            candidate.policy,
+            candidate.q,
+        });
     }
 
     record.board.reserve(record.board_size * record.board_size);
