@@ -108,6 +108,7 @@ AI Creatorはboard/playerからCore rulesでlegal movesを必要時に再計算�
   - move
   - value
   - policy
+  - optional Q
 - diagnostics
 
 AIごとに全candidate情報を提供する義務はない。
@@ -148,7 +149,7 @@ Issueに従って追加する候補:
 - disagreement extraction
 - dynamic-library loading
 - per-stage timing
-- Dataset Pool / Relabelとの接続
+- candidate visualization exportの拡張
 
 
 ## Dataset Tool
@@ -166,3 +167,27 @@ kadoka_dataset_tool attach-recipe <metadata.json> <recipe.json> <output.json>
 - `attach-recipe`: 学習済みmodel metadataへRecipe snapshotを埋め込む
 
 詳細: `doc/dataset-pool.md`
+
+
+## Relabel Tool
+
+Multi-engine RelabelingはCreator Support側に置く。
+
+```text
+kadoka_relabel_tool \
+  <board-state.jsonl> <game-aux.jsonl|-> \
+  <confidence.jsonl> <output.jsonl> \
+  <source-dataset-id|-> \
+  <max-positions> <max-engine-calls> \
+  <max-exact-nodes> <max-elapsed-ms> \
+  <all|top-k> <top-k> <sampler-seed> \
+  [manifest[,rating,rd,seed,search-config] ...]
+```
+
+BoardState / Confidenceは `game_id + ply` でjoinする。
+
+GameAux指定時は次のaccepted moveを元labelとして復元できる。
+
+複数engine結果は個別に保存し、必要な終盤だけCreator-side exact solverへ回す。
+
+詳細: `doc/multi-engine-relabeling.md`
