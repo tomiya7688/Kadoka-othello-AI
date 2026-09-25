@@ -76,6 +76,10 @@ int main(int argc, char** argv) {
         } else {
             std::cout << "move " << legal_moves.front().row << ' '
                       << legal_moves.front().col << '\n';
+            std::cout << "candidate "
+                      << legal_moves.front().row << ' '
+                      << legal_moves.front().col
+                      << " 0.75 0.60 0.55\n";
         }
         std::cout << "diag request_count=" << request_count << '\n';
         std::cout << "diag nodes=1234\n";
