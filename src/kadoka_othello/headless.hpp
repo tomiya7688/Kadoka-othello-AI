@@ -24,11 +24,28 @@ struct HeadlessConfig {
     std::string record_game_id;
 };
 
+struct HeadlessAIMetrics {
+    std::size_t calls{};
+    double total_think_us{};
+    double max_think_us{};
+    std::uint64_t total_nodes{};
+    std::uint64_t total_simulations{};
+    std::size_t max_depth{};
+    double total_search_effort{};
+    std::size_t node_reports{};
+    std::size_t simulation_reports{};
+    std::size_t depth_reports{};
+    std::size_t search_effort_reports{};
+};
+
 struct HeadlessSummary {
     std::size_t games{};
     std::size_t black_wins{};
     std::size_t white_wins{};
     std::size_t draws{};
+    std::size_t total_black_discs{};
+    std::size_t total_white_discs{};
+    std::int64_t total_disc_difference{};
     std::size_t turns{};
     std::size_t ai_calls{};
     std::size_t invalid_move_attempts{};
@@ -45,6 +62,9 @@ struct HeadlessSummary {
     std::size_t simulation_reports{};
     std::size_t depth_reports{};
     std::size_t search_effort_reports{};
+
+    HeadlessAIMetrics black_ai_metrics;
+    HeadlessAIMetrics white_ai_metrics;
 
     std::vector<std::size_t> invalid_attempt_histogram;
 };
