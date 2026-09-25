@@ -75,6 +75,7 @@ struct RelabelEngineResult {
     std::string search_config;
     std::uint64_t seed{};
     Position selected_move{};
+    bool selected_move_legal{false};
     AIMoveMetrics metrics;
     std::vector<RelabelCandidateEvaluation> candidates;
     std::vector<AIDiagnostic> diagnostics;
