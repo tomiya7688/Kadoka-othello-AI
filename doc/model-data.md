@@ -41,6 +41,9 @@ optional candidate:
 - move
 - value
 - policy
+- optional Q
+
+Qを持たないAIでは `null`。
 
 将来拡張候補:
 
