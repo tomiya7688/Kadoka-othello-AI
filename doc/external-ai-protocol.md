@@ -47,7 +47,7 @@ Response:
 result 1
 move 2 3
 diag source=my_ai
-candidate 2 3 0.42 0.70
+candidate 2 3 0.42 0.70 0.38
 end
 ```
 
@@ -59,8 +59,10 @@ end
 
 optional:
 
-- `candidate row col value policy`
+- `candidate row col value policy [q]`
 - `diag key=value`
+
+末尾 `q` はoptional。従来の4数値candidateも有効。
 
 Game Runtimeがauthorityとしてmoveを検証する。
 
