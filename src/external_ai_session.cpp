@@ -85,6 +85,8 @@ AIInspection parse_response(
             if (!(parser >> candidate.move.row >> candidate.move.col >> candidate.value >> candidate.policy)) {
                 throw std::runtime_error("external AI response contains malformed candidate");
             }
+            double q = 0.0;
+            if (parser >> q) candidate.q = q;
             inspection.candidates.push_back(candidate);
         } else {
             throw std::runtime_error("external AI response contains unknown record: " + kind);
