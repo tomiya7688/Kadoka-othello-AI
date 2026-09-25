@@ -32,6 +32,17 @@ native engineはzero-copy board referenceを受け取る。合法手が必要な
 
 proposalは `Game::play()` へ渡し、native/package AI由来でも合法とは信用しない。
 
+`AIInspection.candidates` は開発/解析用に以下を持てる。
+
+- move
+- value
+- policy
+- optional Q
+
+Qを提供しない既存AIは空のままでよい。
+
+candidate情報はCore stateではない。
+
 ## Invalid move
 
 illegal proposal:
