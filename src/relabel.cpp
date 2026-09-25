@@ -1364,4 +1364,60 @@ void write_relabel_jsonl(
     }
 }
 
+DatasetEntry make_relabelled_dataset_entry(
+    const DatasetEntry& parent,
+    std::string dataset_id,
+    std::string relabel_run_id,
+    std::string created_at,
+    std::string relabel_artifact,
+    const RelabelBatchResult& result) {
+    if (relabel_run_id.empty()) {
+        throw std::invalid_argument(
+            "relabel_run_id must not be empty");
+    }
+    if (result.records.empty()) {
+        throw std::invalid_argument(
+            "cannot create relabel Dataset from empty result");
+    }
+
+    std::vector<std::string> game_ids;
+    for (const auto& record : result.records) {
+        if (std::find(
+                game_ids.begin(),
+                game_ids.end(),
+                record.game_id) ==
+            game_ids.end()) {
+            game_ids.push_back(record.game_id);
+        }
+    }
+
+    DatasetEntry derived = derive_dataset(
+        parent,
+        std::move(dataset_id),
+        "relabelled",
+        parent.usage,
+        std::move(created_at),
+        std::move(game_ids));
+
+    std::ostringstream history;
+    history << "run=" << relabel_run_id
+            << ";format=" << kRelabelRecordFormat
+            << ";records=" << result.records.size()
+            << ";engine_calls=" << result.engine_calls
+            << ";exact_nodes=" << result.exact_nodes;
+    derived.provenance.relabel_history.push_back(
+        history.str());
+
+    if (!relabel_artifact.empty() &&
+        std::find(
+            derived.artifacts.begin(),
+            derived.artifacts.end(),
+            relabel_artifact) ==
+            derived.artifacts.end()) {
+        derived.artifacts.push_back(
+            std::move(relabel_artifact));
+    }
+    return derived;
+}
+
 }  // namespace kadoka::othello
