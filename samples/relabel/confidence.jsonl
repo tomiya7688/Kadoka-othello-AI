@@ -1,0 +1,1 @@
+{"format":"kadoka.confidence_sample.v1","game_id":"01ARZ3NDEKTSV4RRFFQ69G5FB3","ply":0,"board_size":6,"factors":{"source_rating_deviation":300,"multi_ai_move_disagreement":1,"top_candidate_gap":0.01,"empty_count":32}}
