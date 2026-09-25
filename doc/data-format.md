@@ -91,3 +91,26 @@ training / validation / benchmark / league_evaluationはusage fieldで分離し�
 confidence値そのものよりraw factorを優先して保存し、後からcalculatorを差し替え可能にする。
 
 詳細: `doc/confidence-uncertainty.md`
+
+
+## Relabel record
+
+再評価結果は `kadoka.relabel_record.v1` としてCore state/Game Recordから分離する。
+
+主な内容:
+
+- game_id / ply / board_size
+- source Dataset
+- before label
+- confidence before
+- Othello派生analysis
+- legal moves
+- engine別selected move / candidate value / policy / Q / search metrics
+- disagreement
+- exact endgame result
+- after label
+- provenance
+
+exact結果と推定engine結果を同一fieldへ潰さない。
+
+詳細: `doc/multi-engine-relabeling.md`
