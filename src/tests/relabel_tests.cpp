@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "kadoka_othello/confidence.hpp"
