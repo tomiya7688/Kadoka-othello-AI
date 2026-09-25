@@ -399,9 +399,14 @@ filter_engine_candidates(
                         inspection.output.move;
                 });
         if (!selected_present) {
-            result.push_back(RelabelCandidateEvaluation{
+            RelabelCandidateEvaluation selected{
                 inspection.output.move,
-            });
+            };
+            if (result.size() < top_k) {
+                result.push_back(std::move(selected));
+            } else if (!result.empty()) {
+                result.back() = std::move(selected);
+            }
         }
     }
     return result;
