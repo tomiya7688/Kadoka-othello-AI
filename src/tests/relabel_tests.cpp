@@ -240,6 +240,47 @@ void test_multi_engine_preserves_provenance(
     KADOKA_REQUIRE(
         json.find("\"disagreement\"") !=
         std::string::npos);
+
+    DatasetEntry parent;
+    parent.dataset_id = "obake-raw-dataset";
+    parent.usage = DatasetUsage::Training;
+    parent.provenance.source_type = "obake";
+    parent.provenance.board_size = 8;
+    parent.provenance.created_at =
+        "2026-09-25T00:00:00Z";
+    parent.provenance.license = "MIT";
+    parent.provenance.game_ids = {
+        record.game_id,
+    };
+    parent.artifacts = {
+        "board-state.jsonl",
+        "game-aux.jsonl",
+    };
+
+    const DatasetEntry derived =
+        make_relabelled_dataset_entry(
+            parent,
+            "obake-relabelled",
+            "relabel-run-001",
+            "2026-09-25T01:00:00Z",
+            "relabel-output.jsonl",
+            result);
+    KADOKA_REQUIRE(
+        derived.provenance.parent_dataset ==
+        std::optional<std::string>{
+            "obake-raw-dataset"});
+    KADOKA_REQUIRE(
+        derived.provenance.relabel_history.size() == 1);
+    KADOKA_REQUIRE(
+        derived.provenance.relabel_history.back().find(
+            "run=relabel-run-001") !=
+        std::string::npos);
+    KADOKA_REQUIRE(
+        std::find(
+            derived.artifacts.begin(),
+            derived.artifacts.end(),
+            "relabel-output.jsonl") !=
+        derived.artifacts.end());
 }
 
 void test_top_k_and_engine_budget(
