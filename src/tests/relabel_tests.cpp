@@ -332,7 +332,7 @@ void test_exact_endgame_and_node_budget() {
     }
 
     RelabelBudget tiny_budget = complete_budget;
-    tiny_budget.max_exact_nodes = 1;
+    tiny_budget.max_exact_nodes = 0;
 
     const auto limited = relabel_positions(
         {input},
