@@ -1,0 +1,1 @@
+{"schema":"kadoka.board_state","version":1,"game_id":"01ARZ3NDEKTSV4RRFFQ69G5FB3","ply":0,"board_size":6,"cells":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,0,0,0,0,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"side_to_move":"black","time":{"black_remaining_ms":null,"white_remaining_ms":null,"move_limit_ms":null}}
