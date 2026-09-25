@@ -106,6 +106,22 @@
 - high-confidence sampleもseed付きrandom audit可能。
 - confidence toolingはCreator/Dataset側で、Runtime hot pathへ依存しない。
 
+### Multi-engine Relabeling
+
+- `kadoka.relabel_record.v1` でbefore/after label、engine別結果、disagreement、exact結果、provenanceを保存。
+- Game Record `BoardState` + Confidence Sampleを `game_id + ply` で入力可能。
+- 複数AI packageを同一局面へfresh loadして再評価。
+- engineごとにmodel ID/version、rating/RD、search config、seed、selected move legality、metrics、candidate value/policy/Q、diagnosticsを保持。
+- candidate保存mode: AllLegal / strict TopK。
+- multi-AI move disagreement / selected-value stddev / distinct move countを保存。
+- Othello派生解析: mobility、potential mobility、frontier、corner availability、corner-anchored stable-edge estimate、parity。
+- Creator-side budget付きexact endgame solver: pass + alpha-beta + final disc difference + per-move exact value。
+- max positions / engine calls / exact nodes / elapsed time budget。
+- exact完了時だけexact derived label。それ以外は合法結果を返した高rating/低RD engineをreferenceとしてafter labelへ採用し、他engine結果は削除しない。
+- `make_relabelled_dataset_entry()` でDataset Poolのparent/relabel_history/artifact provenanceへ接続。
+- `kadoka_relabel_tool` でBoardState/GameAux/Confidence JSONLからbatch再評価可能。
+- 6x6 / 8x8 / 10x10共通I/F、size別exact threshold。
+
 ### AI Creator / Tooling
 
 - analyze / batch analyze / compare / benchmark。
