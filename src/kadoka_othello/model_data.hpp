@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@ struct CandidateEvaluation {
     Position move{};
     double value{};
     double policy{};
+    std::optional<double> q;
 };
 
 struct ModelRecord {
