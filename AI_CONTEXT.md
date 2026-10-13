@@ -18,6 +18,7 @@
 - Architecture: `doc/architecture.md`
 - Runtime / Creator境界: `doc/runtime-creator-boundary.md`
 - Coding rules / performance exception: `doc/coding-rules.md`
+- Code quality / learning review criteria: `evaluation/code-quality-review-criteria.md`
 - 現在実装: `doc/current-state.md`
 - 兄弟プロジェクト方針: `doc/sibling-project-alignment.md`
 - Model/package: `doc/model-format.md`, `doc/ai-package.md`
