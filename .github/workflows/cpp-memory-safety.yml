@@ -1,0 +1,79 @@
+name: C++ memory safety
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpp-memory-safety-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sanitizers:
+    name: ASan + LSan + UBSan (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:strict_string_checks=1
+      LSAN_OPTIONS: exitcode=23:report_objects=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure sanitized build
+        shell: bash
+        run: |
+          cmake -S . -B build-safety \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DBUILD_TESTING=ON \
+            -DKADOKA_BUILD_AI_CREATOR=ON \
+            -DCMAKE_CXX_COMPILER="${{ matrix.compiler }}" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all -D_GLIBCXX_ASSERTIONS" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+
+      - name: Build sanitized targets
+        run: cmake --build build-safety --config Debug --parallel 2
+
+      - name: Run all tests with leak detection
+        run: ctest --test-dir build-safety -C Debug --output-on-failure
+
+      - name: Verify LeakSanitizer is active
+        shell: bash
+        run: |
+          cat > leak_probe.cpp <<'EOF'
+          int main() {
+              int* leaked = new int[8]();
+              leaked[0] = 17;
+              return leaked[0] == 17 ? 0 : 1;
+          }
+          EOF
+          "${{ matrix.compiler }}" -g -fsanitize=address,undefined -fno-omit-frame-pointer leak_probe.cpp -o leak_probe
+          set +e
+          ./leak_probe > leak_probe.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 23 ] || ! grep -q "LeakSanitizer: detected memory leaks" leak_probe.log; then
+            cat leak_probe.log
+            echo "LeakSanitizer did not fail on the intentional leak."
+            exit 1
+          fi
