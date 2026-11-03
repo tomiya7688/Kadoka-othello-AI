@@ -14,6 +14,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  wasm-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned WASI SDK and Wasmtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/kadoka-wasm-tools"
+          cd "$RUNNER_TEMP/kadoka-wasm-tools"
+          curl --fail --location --retry 3 --output wasi-sdk.tar.gz \
+            https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz
+          curl --fail --location --retry 3 --output wasmtime.tar.xz \
+            https://github.com/bytecodealliance/wasmtime/releases/download/v49.0.3/wasmtime-v49.0.3-x86_64-linux.tar.xz
+          printf '%s  %s\n' \
+            b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4 wasi-sdk.tar.gz \
+            4001225413f208345b980525f31c4080e1873808b38d0ddc7918497340667fbb wasmtime.tar.xz \
+            | sha256sum --check
+          tar -xzf wasi-sdk.tar.gz
+          tar -xJf wasmtime.tar.xz
+          echo "$PWD/wasmtime-v49.0.3-x86_64-linux" >> "$GITHUB_PATH"
+          echo "KADOKA_WASI_SDK_ROOT=$PWD/wasi-sdk-34.0-x86_64-linux" >> "$GITHUB_ENV"
+
+      - name: Configure real WASM integration tests
+        run: >-
+          cmake -S . -B build-wasm
+          -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          -DKADOKA_ENABLE_WASM_TESTS=ON
+          -DKADOKA_WASI_SDK_ROOT="$KADOKA_WASI_SDK_ROOT"
+
+      - name: Build host executables and WASI modules
+        run: cmake --build build-wasm --config Release --parallel 2
+
+      - name: Test including real Wasmtime execution
+        run: ctest --test-dir build-wasm -C Release --output-on-failure
+
   build-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15

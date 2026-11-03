@@ -1,12 +1,12 @@
 #pragma once
 
+#include "kadoka_othello/model_descriptor.hpp"
+
 #include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "kadoka_othello/model_descriptor.hpp"
 
 namespace kadoka::othello {
 
@@ -32,9 +32,7 @@ struct ScriptEvaluatorResult {
     std::vector<ScriptEvaluatorValue> values;
     std::vector<std::pair<std::string, std::string>> diagnostics;
 
-    [[nodiscard]] double value_or(
-        const std::string& key,
-        double fallback = 0.0) const noexcept;
+    [[nodiscard]] double value_or(const std::string& key, double fallback = 0.0) const noexcept;
 };
 
 enum class ScriptEvaluatorRuntime {
@@ -49,35 +47,31 @@ struct ScriptEvaluatorConfig {
     std::string entry_path;
     std::string executable{"python"};
     std::string symbol{"kadoka_script_evaluator_v1"};
+    std::string wasm_cache_config;
 };
 
 class ScriptEvaluator {
-public:
+  public:
     explicit ScriptEvaluator(ScriptEvaluatorConfig config);
 
     [[nodiscard]] const ScriptEvaluatorConfig& config() const noexcept;
 
-    [[nodiscard]] std::vector<ScriptEvaluatorResult> evaluate_batch(
-        const std::vector<ScriptEvaluatorCase>& cases) const;
+    [[nodiscard]] std::vector<ScriptEvaluatorResult>
+    evaluate_batch(const std::vector<ScriptEvaluatorCase>& cases) const;
 
-private:
-    [[nodiscard]] std::string build_command(
-        const std::string& input_path,
-        const std::string& output_path) const;
+  private:
+    [[nodiscard]] std::string build_command(const std::string& input_path, const std::string& output_path) const;
 
     ScriptEvaluatorConfig config_;
     std::shared_ptr<NativeInProcessEvaluator> native_in_process_;
 };
 
-[[nodiscard]] ScriptEvaluatorConfig load_script_evaluator_config(
-    const std::string& path,
-    const std::string& default_entry_path = {});
+[[nodiscard]] ScriptEvaluatorConfig load_script_evaluator_config(const std::string& path,
+                                                                 const std::string& default_entry_path = {});
 
-[[nodiscard]] ScriptEvaluator load_script_evaluator_asset(
-    const ModelRootDescriptor& model,
-    const std::string& asset_id);
+[[nodiscard]] ScriptEvaluator load_script_evaluator_asset(const ModelRootDescriptor& model,
+                                                          const std::string& asset_id);
 
-[[nodiscard]] const char* script_evaluator_runtime_name(
-    ScriptEvaluatorRuntime runtime) noexcept;
+[[nodiscard]] const char* script_evaluator_runtime_name(ScriptEvaluatorRuntime runtime) noexcept;
 
-}  // namespace kadoka::othello
+} // namespace kadoka::othello

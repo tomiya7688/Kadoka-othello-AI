@@ -22,8 +22,8 @@ struct ModelRootDescriptor {
 };
 
 [[nodiscard]] ModelRootDescriptor load_model_root_descriptor(const std::string& path);
-[[nodiscard]] std::string find_model_asset_path(
-    const ModelRootDescriptor& descriptor,
-    const std::string& asset_id);
+[[nodiscard]] const ModelAssetDescriptor* find_model_asset(const ModelRootDescriptor& descriptor,
+                                                           const std::string& asset_id) noexcept;
+[[nodiscard]] std::string find_model_asset_path(const ModelRootDescriptor& descriptor, const std::string& asset_id);
 
-}  // namespace kadoka::othello
+} // namespace kadoka::othello

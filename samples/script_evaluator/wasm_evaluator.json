@@ -1,0 +1,6 @@
+{
+  "format": "kadoka.script_evaluator.v1",
+  "runtime": "wasm",
+  "module": "wasm_evaluator.wasm",
+  "executable": "wasmtime"
+}

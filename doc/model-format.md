@@ -42,6 +42,10 @@ Root format: `kadoka.model.v1`
 
 assetはJSON限定ではない。evaluator parameter、NN、opening book、search setting、endgame table、calibration data、learned tree、executable evaluator module等を参照できる。
 
+RuntimeはJSON object、`format: "kadoka.model.v1"`、`model_id`、`model_kind`、`engine`、`assets` arrayを検証する。各assetには重複しない`id`、`type`、package内の相対`path`、booleanの`required`が必要。重複field / asset ID、不正JSON、未対応root format、symlink解決後にpackage外へ出るpathはload failureとする。required assetはRuntimeが対応するtypeであり、参照先が存在しなければならない。
+
+現在Runtimeがrequired assetとして受理するtypeは `kadoka.evaluator.linear.v1`、`kadoka.evaluator.simple.v1`、`kadoka.character_behavior.v1`、`kadoka.script_evaluator.v1`。unknown required asset typeはload failure。unknown optional assetはdescriptorに保持され、利用するengineがなければ無視できる。engine固有のasset ID/type/required条件も各engineが検証する。
+
 ## Script Evaluator asset
 
 modelは `kadoka.script_evaluator.v1` でexecutable evaluation logicを所有できる。
@@ -74,9 +78,18 @@ modelは `kadoka.script_evaluator.v1` でexecutable evaluation logicを所有で
 }
 ```
 
+```json
+{
+  "format":"kadoka.script_evaluator.v1",
+  "runtime":"wasm",
+  "module":"evaluator.wasm",
+  "executable":"wasmtime"
+}
+```
+
 全runtimeでlogical `features batch -> values/diagnostics` contractは同じ。
 
-process protocol / native in-process ABIは `doc/script-evaluator-runtime.md`。
+process protocol / native in-process ABI / WASI runtime設定は `doc/script-evaluator-runtime.md`。
 
 ## Evaluator AI engine
 
@@ -103,7 +116,7 @@ packageは `interface: "native"` のまま。
 
 C++ Runtime engineがcanonical stateからlegal candidateを生成・batch化し、evaluator assetがscoreする。
 
-`python_process` / `native_process` / `native_in_process` を切り替えてもgame-facing AI protocolは変えない。
+`python_process` / `native_process` / `native_in_process` / `wasm` を切り替えてもgame-facing AI protocolは変えない。
 
 move validationとpackage executionはauthoritative C++ Runtime/Game側に残す。
 

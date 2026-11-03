@@ -1,3 +1,4 @@
+#include "kadoka_othello/model_descriptor.hpp"
 #include "kadoka_othello/obake_maru.hpp"
 
 #include <cctype>
@@ -5,14 +6,13 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "kadoka_othello/model_descriptor.hpp"
-
 namespace kadoka::othello {
 namespace {
 
 std::string read_all(const std::string& path) {
     std::ifstream input(path);
-    if (!input) throw std::runtime_error("failed to open Obake Maru model asset: " + path);
+    if (!input)
+        throw std::runtime_error("failed to open Obake Maru model asset: " + path);
     std::ostringstream buffer;
     buffer << input.rdbuf();
     return buffer.str();
@@ -21,16 +21,17 @@ std::string read_all(const std::string& path) {
 double read_number(const std::string& text, const std::string& key, double fallback) {
     const std::string token = "\"" + key + "\"";
     const std::size_t key_pos = text.find(token);
-    if (key_pos == std::string::npos) return fallback;
+    if (key_pos == std::string::npos)
+        return fallback;
     const std::size_t colon = text.find(':', key_pos + token.size());
-    if (colon == std::string::npos) return fallback;
+    if (colon == std::string::npos)
+        return fallback;
     std::size_t start = colon + 1;
-    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start]))) ++start;
+    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start])))
+        ++start;
     std::size_t end = start;
-    while (end < text.size() &&
-           (std::isdigit(static_cast<unsigned char>(text[end])) ||
-            text[end] == '-' || text[end] == '+' || text[end] == '.' ||
-            text[end] == 'e' || text[end] == 'E')) {
+    while (end < text.size() && (std::isdigit(static_cast<unsigned char>(text[end])) || text[end] == '-' ||
+                                 text[end] == '+' || text[end] == '.' || text[end] == 'e' || text[end] == 'E')) {
         ++end;
     }
     return end == start ? fallback : std::stod(text.substr(start, end - start));
@@ -51,24 +52,50 @@ void apply_behavior_asset(ObakeMaruConfig& config, const std::string& path) {
     config.rejected_retry_penalty = read_number(text, "rejected_retry_penalty", config.rejected_retry_penalty);
 }
 
-}  // namespace
+} // namespace
 
 ObakeMaruConfig load_obake_maru_model(const std::string& model_root_path) {
     const ModelRootDescriptor descriptor = load_model_root_descriptor(model_root_path);
     if (descriptor.model_id != "kadoka.obake_maru") {
         throw std::runtime_error("unexpected model id for Obake Maru: " + descriptor.model_id);
     }
+    if (descriptor.engine != "builtin:kadoka.obake_maru") {
+        throw std::runtime_error("unexpected engine for Obake Maru: " + descriptor.engine);
+    }
+
+    for (const ModelAssetDescriptor& asset : descriptor.assets) {
+        if (!asset.required)
+            continue;
+        const bool evaluator = asset.id == "evaluator" && asset.type == "kadoka.evaluator.simple.v1";
+        const bool behavior = asset.id == "behavior" && asset.type == "kadoka.character_behavior.v1";
+        if (!evaluator && !behavior) {
+            throw std::runtime_error("unsupported required Obake Maru model asset: " + asset.id + " (" + asset.type +
+                                     ")");
+        }
+    }
 
     ObakeMaruConfig config;
+    const ModelAssetDescriptor* evaluator_asset = find_model_asset(descriptor, "evaluator");
+    const ModelAssetDescriptor* behavior_asset = find_model_asset(descriptor, "behavior");
+    if (evaluator_asset == nullptr) {
+        throw std::runtime_error("Obake Maru model requires evaluator asset");
+    }
+    if (evaluator_asset->type != "kadoka.evaluator.simple.v1" || !evaluator_asset->required) {
+        throw std::runtime_error("Obake Maru evaluator asset must be required kadoka.evaluator.simple.v1");
+    }
+    if (behavior_asset == nullptr) {
+        throw std::runtime_error("Obake Maru model requires behavior asset");
+    }
+    if (behavior_asset->type != "kadoka.character_behavior.v1" || !behavior_asset->required) {
+        throw std::runtime_error("Obake Maru behavior asset must be required kadoka.character_behavior.v1");
+    }
+
     const std::string evaluator_path = find_model_asset_path(descriptor, "evaluator");
     const std::string behavior_path = find_model_asset_path(descriptor, "behavior");
-
-    if (evaluator_path.empty()) throw std::runtime_error("Obake Maru model requires evaluator asset");
-    if (behavior_path.empty()) throw std::runtime_error("Obake Maru model requires behavior asset");
 
     apply_evaluator_asset(config, evaluator_path);
     apply_behavior_asset(config, behavior_path);
     return config;
 }
 
-}  // namespace kadoka::othello
+} // namespace kadoka::othello

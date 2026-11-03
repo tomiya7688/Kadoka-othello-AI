@@ -40,7 +40,7 @@ participant IDは次をfingerprintする。
 - package interface / entry
 - manifest内容
 - model descriptor内容
-- model asset内容
+- 通常ファイルとして存在するmodel asset内容
 - board size
 - seed
 - config hash
@@ -78,6 +78,7 @@ Registryはparticipant設定とratingをJSONLで永続化する。
 Registry load時に現在のpackage/configからparticipant fingerprintを再計算し、保存済みparticipant_idと一致しなければrejectする。
 
 これにより同じpathのmodel内容だけ差し替えて過去ratingを誤継承することを防ぐ。
+optional assetが未配置または通常ファイルでない場合、その内容はfingerprintに含めない。required assetはpackage load時に存在する通常ファイルとして検証される。
 
 ### Role
 

@@ -1,24 +1,56 @@
-#include <cstdint>
-#include <sstream>
-#include <string>
-#include <utility>
-#include <vector>
-
 #include "kadoka_othello/league.hpp"
 #include "kadoka_othello/league_registry.hpp"
 #include "kadoka_othello/league_scheduler.hpp"
 #include "test_support.hpp"
 
+#include <chrono>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
+
 using namespace kadoka::othello;
 
 namespace {
 
-LeagueRegistryEntry make_entry(
-    const std::string& manifest_path,
-    std::uint64_t seed,
-    std::string config_hash,
-    LeagueParticipantRole role,
-    std::string checkpoint_id = {}) {
+class TemporaryDirectory {
+  public:
+    TemporaryDirectory() {
+        const auto timestamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        path_ = std::filesystem::temp_directory_path() / ("kadoka_league_optional_asset_" + std::to_string(timestamp));
+        std::filesystem::create_directories(path_);
+    }
+
+    ~TemporaryDirectory() {
+        std::error_code error;
+        std::filesystem::remove_all(path_, error);
+    }
+
+    const std::filesystem::path& path() const noexcept {
+        return path_;
+    }
+
+  private:
+    std::filesystem::path path_;
+};
+
+void write_file(const std::filesystem::path& path, const std::string& content) {
+    std::ofstream output(path, std::ios::binary);
+    if (!output)
+        throw std::runtime_error("failed to create league test package file");
+    output << content;
+    if (!output)
+        throw std::runtime_error("failed to write league test package file");
+}
+
+LeagueRegistryEntry make_entry(const std::string& manifest_path, std::uint64_t seed, std::string config_hash,
+                               LeagueParticipantRole role, std::string checkpoint_id = {}) {
     LeagueParticipantConfig config;
     config.manifest_path = manifest_path;
     config.board_size = 6;
@@ -26,15 +58,53 @@ LeagueRegistryEntry make_entry(
     config.config_hash = std::move(config_hash);
 
     LeagueRegistryEntry entry;
-    entry.participant =
-        load_league_participant(std::move(config));
+    entry.participant = load_league_participant(std::move(config));
     entry.role = role;
     entry.checkpoint_id = std::move(checkpoint_id);
     return entry;
 }
 
-void test_round_robin_compatibility(
-    const std::string& manifest_path) {
+void test_optional_missing_model_asset_is_ignored() {
+    TemporaryDirectory directory;
+    const auto manifest_path = directory.path() / "manifest.json";
+    write_file(manifest_path, "{"
+                              "\"id\":\"test.optional_asset\","
+                              "\"name\":\"Optional Asset Test\","
+                              "\"version\":\"1.0.0\","
+                              "\"board_sizes\":[6],"
+                              "\"interface\":\"native\","
+                              "\"entry\":\"builtin:kadoka.random\","
+                              "\"model\":\"model.json\""
+                              "}");
+    write_file(directory.path() / "model.json", "{"
+                                                "\"format\":\"kadoka.model.v1\","
+                                                "\"model_id\":\"test.optional_asset\","
+                                                "\"model_kind\":\"test\","
+                                                "\"engine\":\"builtin:test\","
+                                                "\"assets\":["
+                                                "{\"id\":\"future\",\"type\":\"kadoka.future_asset.v1\","
+                                                "\"path\":\"future.bin\",\"required\":false}"
+                                                "]"
+                                                "}");
+
+    LeagueParticipantConfig config;
+    config.manifest_path = manifest_path.string();
+    config.board_size = 6;
+    config.seed = 17;
+    const LeagueParticipant without_asset = load_league_participant(config);
+
+    std::filesystem::create_directory(directory.path() / "future.bin");
+    const LeagueParticipant with_asset_directory = load_league_participant(config);
+    KADOKA_REQUIRE(without_asset.participant_id == with_asset_directory.participant_id);
+    std::filesystem::remove(directory.path() / "future.bin");
+
+    write_file(directory.path() / "future.bin", "asset");
+    const LeagueParticipant with_asset = load_league_participant(config);
+    KADOKA_REQUIRE(!without_asset.participant_id.empty());
+    KADOKA_REQUIRE(without_asset.participant_id != with_asset.participant_id);
+}
+
+void test_round_robin_compatibility(const std::string& manifest_path) {
     LeagueParticipantConfig first_config;
     first_config.manifest_path = manifest_path;
     first_config.board_size = 6;
@@ -45,13 +115,10 @@ void test_round_robin_compatibility(
     second_config.seed = 1002;
     second_config.config_hash = "test-b";
 
-    const LeagueParticipant first =
-        load_league_participant(first_config);
-    const LeagueParticipant second =
-        load_league_participant(second_config);
+    const LeagueParticipant first = load_league_participant(first_config);
+    const LeagueParticipant second = load_league_participant(second_config);
 
-    KADOKA_REQUIRE(
-        first.participant_id != second.participant_id);
+    KADOKA_REQUIRE(first.participant_id != second.participant_id);
 
     LeagueRunConfig run_config;
     run_config.games_per_color = 1;
@@ -60,78 +127,37 @@ void test_round_robin_compatibility(
 
     std::ostringstream game_log;
     std::ostringstream dataset;
-    const LeagueRunResult result = run_round_robin_league(
-        std::vector<LeagueParticipant>{first, second},
-        run_config,
-        &game_log,
-        &dataset);
+    const LeagueRunResult result =
+        run_round_robin_league(std::vector<LeagueParticipant>{first, second}, run_config, &game_log, &dataset);
 
     KADOKA_REQUIRE(result.games.size() == 2);
     KADOKA_REQUIRE(result.table.size() == 2);
-    KADOKA_REQUIRE(
-        result.games[0].black_participant_id ==
-        first.participant_id);
-    KADOKA_REQUIRE(
-        result.games[0].white_participant_id ==
-        second.participant_id);
-    KADOKA_REQUIRE(
-        result.games[1].black_participant_id ==
-        second.participant_id);
-    KADOKA_REQUIRE(
-        result.games[1].white_participant_id ==
-        first.participant_id);
-    KADOKA_REQUIRE(
-        result.games[0].game_id != result.games[1].game_id);
-    KADOKA_REQUIRE(
-        result.games[0].game_id.size() == 26);
-    KADOKA_REQUIRE(
-        result.games[0].reproducibility_key.rfind(
-            "run-", 0) == 0);
+    KADOKA_REQUIRE(result.games[0].black_participant_id == first.participant_id);
+    KADOKA_REQUIRE(result.games[0].white_participant_id == second.participant_id);
+    KADOKA_REQUIRE(result.games[1].black_participant_id == second.participant_id);
+    KADOKA_REQUIRE(result.games[1].white_participant_id == first.participant_id);
+    KADOKA_REQUIRE(result.games[0].game_id != result.games[1].game_id);
+    KADOKA_REQUIRE(result.games[0].game_id.size() == 26);
+    KADOKA_REQUIRE(result.games[0].reproducibility_key.rfind("run-", 0) == 0);
 
     for (const auto& entry : result.table) {
         KADOKA_REQUIRE(entry.rating.games == 2);
         KADOKA_REQUIRE(entry.rating.deviation < 350.0);
-        KADOKA_REQUIRE(
-            entry.rating.wins +
-            entry.rating.losses +
-            entry.rating.draws == 2);
+        KADOKA_REQUIRE(entry.rating.wins + entry.rating.losses + entry.rating.draws == 2);
     }
 
-    KADOKA_REQUIRE(
-        game_log.str().find("kadoka.league_game.v1") !=
-        std::string::npos);
-    KADOKA_REQUIRE(
-        game_log.str().find("\"total_nodes\"") !=
-        std::string::npos);
-    KADOKA_REQUIRE(
-        dataset.str().find("kadoka.league_position.v1") !=
-        std::string::npos);
+    KADOKA_REQUIRE(game_log.str().find("kadoka.league_game.v1") != std::string::npos);
+    KADOKA_REQUIRE(game_log.str().find("\"total_nodes\"") != std::string::npos);
+    KADOKA_REQUIRE(dataset.str().find("kadoka.league_position.v1") != std::string::npos);
 }
 
-void test_registry_schedulers_and_persistence(
-    const std::string& manifest_path) {
+void test_registry_schedulers_and_persistence(const std::string& manifest_path) {
     LeagueRegistry registry;
-    registry.register_entry(make_entry(
-        manifest_path,
-        2001,
-        "champion-v1",
-        LeagueParticipantRole::Champion));
-    registry.register_entry(make_entry(
-        manifest_path,
-        2002,
-        "candidate-v2",
-        LeagueParticipantRole::Candidate));
-    registry.register_entry(make_entry(
-        manifest_path,
-        2003,
-        "checkpoint-2025",
-        LeagueParticipantRole::HallOfFame,
-        "generation-2025"));
-    registry.register_entry(make_entry(
-        manifest_path,
-        2004,
-        "standard-control",
-        LeagueParticipantRole::Standard));
+    registry.register_entry(make_entry(manifest_path, 2001, "champion-v1", LeagueParticipantRole::Champion));
+    registry.register_entry(make_entry(manifest_path, 2002, "candidate-v2", LeagueParticipantRole::Candidate));
+    registry.register_entry(
+        make_entry(manifest_path, 2003, "checkpoint-2025", LeagueParticipantRole::HallOfFame, "generation-2025"));
+    registry.register_entry(make_entry(manifest_path, 2004, "standard-control", LeagueParticipantRole::Standard));
 
     KADOKA_REQUIRE(registry.entries().size() == 4);
 
@@ -140,40 +166,26 @@ void test_registry_schedulers_and_persistence(
     registry.entries()[2].rating.rating = 1800.0;
     registry.entries()[3].rating.rating = 1200.0;
 
-    const auto round_robin =
-        schedule_round_robin(registry, 6);
+    const auto round_robin = schedule_round_robin(registry, 6);
     KADOKA_REQUIRE(round_robin.size() == 6);
 
-    const auto random_schedule =
-        schedule_random_matches(registry, 6, 5, 1234);
+    const auto random_schedule = schedule_random_matches(registry, 6, 5, 1234);
     KADOKA_REQUIRE(random_schedule.size() == 5);
     for (const auto pair : random_schedule) {
-        KADOKA_REQUIRE(
-            pair.first_entry != pair.second_entry);
+        KADOKA_REQUIRE(pair.first_entry != pair.second_entry);
     }
 
-    const auto rating_schedule =
-        schedule_rating_band(
-            registry,
-            6,
-            3,
-            20.0,
-            9876);
+    const auto rating_schedule = schedule_rating_band(registry, 6, 3, 20.0, 9876);
     KADOKA_REQUIRE(rating_schedule.size() == 3);
     for (const auto pair : rating_schedule) {
-        const double lhs =
-            registry.entries()[pair.first_entry].rating.rating;
-        const double rhs =
-            registry.entries()[pair.second_entry].rating.rating;
-        KADOKA_REQUIRE(
-            lhs - rhs <= 20.0 && rhs - lhs <= 20.0);
+        const double lhs = registry.entries()[pair.first_entry].rating.rating;
+        const double rhs = registry.entries()[pair.second_entry].rating.rating;
+        KADOKA_REQUIRE(lhs - rhs <= 20.0 && rhs - lhs <= 20.0);
     }
 
-    const auto candidate_champion =
-        schedule_candidate_champion(registry, 6);
+    const auto candidate_champion = schedule_candidate_champion(registry, 6);
     KADOKA_REQUIRE(candidate_champion.size() == 1);
-    const auto candidate_hof =
-        schedule_candidate_hall_of_fame(registry, 6);
+    const auto candidate_hof = schedule_candidate_hall_of_fame(registry, 6);
     KADOKA_REQUIRE(candidate_hof.size() == 1);
 
     LeagueRunConfig config;
@@ -189,26 +201,16 @@ void test_registry_schedulers_and_persistence(
     outputs.board_state_output = &board_state;
     outputs.game_aux_output = &game_aux;
 
-    const LeagueRunResult result = run_registry_schedule(
-        registry,
-        6,
-        candidate_champion,
-        config,
-        outputs);
+    const LeagueRunResult result = run_registry_schedule(registry, 6, candidate_champion, config, outputs);
 
     KADOKA_REQUIRE(result.games.size() == 2);
     KADOKA_REQUIRE(result.table.size() == 2);
 
     for (const auto& game : result.games) {
         KADOKA_REQUIRE(game.game_id.size() == 26);
-        KADOKA_REQUIRE(
-            board_state.str().find(game.game_id) !=
-            std::string::npos);
-        KADOKA_REQUIRE(
-            game_aux.str().find(game.game_id) !=
-            std::string::npos);
-        KADOKA_REQUIRE(
-            game.reproducibility_key.rfind("run-", 0) == 0);
+        KADOKA_REQUIRE(board_state.str().find(game.game_id) != std::string::npos);
+        KADOKA_REQUIRE(game_aux.str().find(game.game_id) != std::string::npos);
+        KADOKA_REQUIRE(game.reproducibility_key.rfind("run-", 0) == 0);
     }
 
     const LeagueRegistryEntry* champion = nullptr;
@@ -216,8 +218,7 @@ void test_registry_schedulers_and_persistence(
     for (const auto& entry : registry.entries()) {
         if (entry.role == LeagueParticipantRole::Champion) {
             champion = &entry;
-        } else if (
-            entry.role == LeagueParticipantRole::Candidate) {
+        } else if (entry.role == LeagueParticipantRole::Candidate) {
             candidate = &entry;
         }
     }
@@ -230,34 +231,31 @@ void test_registry_schedulers_and_persistence(
 
     std::ostringstream persisted;
     write_league_registry_jsonl(registry, persisted);
-    KADOKA_REQUIRE(
-        persisted.str().find(
-            "\"role\":\"hall_of_fame\"") !=
-        std::string::npos);
-    KADOKA_REQUIRE(
-        persisted.str().find(
-            "\"checkpoint_id\":\"generation-2025\"") !=
-        std::string::npos);
+    KADOKA_REQUIRE(persisted.str().find("\"role\":\"hall_of_fame\"") != std::string::npos);
+    KADOKA_REQUIRE(persisted.str().find("\"checkpoint_id\":\"generation-2025\"") != std::string::npos);
 
     std::istringstream input(persisted.str());
-    const LeagueRegistry restored =
-        read_league_registry_jsonl(input);
+    const LeagueRegistry restored = read_league_registry_jsonl(input);
     KADOKA_REQUIRE(restored.entries().size() == 4);
 
     const auto& restored_candidate = restored.entries()[1];
-    KADOKA_REQUIRE(
-        restored_candidate.role ==
-        LeagueParticipantRole::Candidate);
+    KADOKA_REQUIRE(restored_candidate.role == LeagueParticipantRole::Candidate);
     KADOKA_REQUIRE(restored_candidate.rating.games == 2);
 }
 
-}  // namespace
+} // namespace
 
 int main(int argc, char** argv) {
-    KADOKA_REQUIRE(argc == 2);
-    const std::string manifest_path = argv[1];
+    try {
+        KADOKA_REQUIRE(argc == 2);
+        const std::string manifest_path = argv[1];
 
-    test_round_robin_compatibility(manifest_path);
-    test_registry_schedulers_and_persistence(manifest_path);
-    return 0;
+        test_optional_missing_model_asset_is_ignored();
+        test_round_robin_compatibility(manifest_path);
+        test_registry_schedulers_and_persistence(manifest_path);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
 }

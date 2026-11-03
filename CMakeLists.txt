@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(KADOKA_BUILD_AI_CREATOR "Build AI Creator support library and executable" ON)
+option(KADOKA_ENABLE_WASM_TESTS "Build WASI samples and run real Wasmtime integration tests" OFF)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
@@ -220,7 +221,33 @@ file(GENERATE
 
 include(CTest)
 
+if(KADOKA_ENABLE_WASM_TESTS)
+    if(NOT BUILD_TESTING)
+        message(FATAL_ERROR "KADOKA_ENABLE_WASM_TESTS requires BUILD_TESTING=ON")
+    endif()
+    include(cmake/KadokaWasmTests.cmake)
+endif()
+
 if(BUILD_TESTING)
+    add_executable(kadoka_model_package_tests src/tests/model_package_tests.cpp)
+    target_link_libraries(kadoka_model_package_tests PRIVATE kadoka_othello_runtime)
+    if(MSVC)
+        target_compile_options(kadoka_model_package_tests PRIVATE /EHsc)
+    endif()
+    add_test(NAME kadoka_model_package_tests COMMAND kadoka_model_package_tests)
+
+    add_executable(kadoka_evaluator_ai_tests src/tests/evaluator_ai_tests.cpp)
+    target_link_libraries(kadoka_evaluator_ai_tests PRIVATE kadoka_othello_runtime)
+    add_dependencies(kadoka_evaluator_ai_tests kadoka_in_process_evaluator_sample)
+    if(MSVC)
+        target_compile_options(kadoka_evaluator_ai_tests PRIVATE /EHsc)
+    endif()
+    add_test(
+        NAME kadoka_evaluator_ai_tests
+        COMMAND kadoka_evaluator_ai_tests
+            "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>/evaluator_ai_model.json"
+    )
+
     add_executable(kadoka_othello_core_tests
         src/tests/core_tests.cpp
     )
